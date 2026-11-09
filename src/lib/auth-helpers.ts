@@ -20,3 +20,13 @@ export async function requireAuth() {
 
   return session;
 }
+
+export async function requireVerifiedUser() {
+  const session = await requireAuth();
+
+  if (!session.user.emailVerified) {
+    redirect("/verify-email");
+  }
+
+  return session;
+}
