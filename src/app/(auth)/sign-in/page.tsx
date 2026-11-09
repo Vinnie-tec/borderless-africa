@@ -1,22 +1,27 @@
 import Link from "next/link";
 import SigninForm from "./signin-form";
+import styles from "../auth-content.module.scss";
 
 export default function SigninPage() {
   return (
-    <main>
-      <h1>Welcome back</h1>
-      <p>Sign in to your Borderless Africa account.</p>
+    <div>
+      <header className={styles.heading}>
+        <p className={styles.eyebrow}>Your next chapter</p>
+        <h1 className={styles.title}>Welcome back</h1>
+        <p className={styles.description}>
+          Sign in to pick up right where you left off.
+        </p>
+      </header>
 
       <SigninForm />
 
-      <p>
-        Don&apos;t have an account?{" "}
+      <div className={styles.formFooter}>
+        <span>New to Borderless Africa?</span>
         <Link href="/sign-up">Create an account</Link>
-      </p>
-
-      <p>
+      </div>
+      <p className={styles.policy}>
         <Link href="/forgot-password">Forgot your password?</Link>
       </p>
-    </main>
+    </div>
   );
 }

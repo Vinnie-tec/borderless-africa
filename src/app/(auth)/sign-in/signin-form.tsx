@@ -9,14 +9,16 @@ import { useRouter } from "next/navigation";
 
 import { authClient } from "@/lib/auth-client";
 import { FormField } from "@/components/forms/form-field";
+import { useToast } from "@/components/toast/toast-provider";
+import styles from "./signin-form.module.scss";
 
 export default function SigninForm() {
   const router = useRouter();
+  const toast = useToast();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Tracks the pending navigation to the dashboard.
@@ -28,7 +30,6 @@ export default function SigninForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setError("");
     setIsSubmitting(true);
 
     try {
@@ -38,7 +39,9 @@ export default function SigninForm() {
       });
 
       if (error) {
-        setError(error.message || "Unable to sign in.");
+        toast.error("We couldn’t sign you in", {
+          description: error.message || "Check your details and try again.",
+        });
         return;
       }
 
@@ -47,18 +50,25 @@ export default function SigninForm() {
         router.replace("/dashboard");
       });
     } catch {
-      setError("Something went wrong. Please try again.");
+      toast.error("Something went wrong", {
+        description: "Please try signing in again in a moment.",
+      });
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form
+      aria-busy={isPending}
+      className={styles.form}
+      onSubmit={handleSubmit}
+    >
       <FormField
         id="email"
         label="Email address"
         type="email"
+        placeholder="you@example.com"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         autoComplete="email"
@@ -69,20 +79,27 @@ export default function SigninForm() {
         id="password"
         label="Password"
         type="password"
+        placeholder="Enter your password"
         value={password}
         onChange={(event) => setPassword(event.target.value)}
         autoComplete="current-password"
         required
       />
 
-      {error && <p role="alert">{error}</p>}
-
-      <button type="submit" disabled={isPending}>
-        {isSubmitting
-          ? "Signing in..."
-          : isNavigating
-            ? "Opening dashboard..."
-            : "Sign in"}
+      <button className={styles.submit} type="submit" disabled={isPending}>
+        {isPending ? (
+          <>
+            <span aria-hidden="true" className={styles.spinner} />
+            {isSubmitting ? "Signing in..." : "Opening your space..."}
+          </>
+        ) : (
+          <>
+            Sign in
+            <span aria-hidden="true" className={styles.arrow}>
+              →
+            </span>
+          </>
+        )}
       </button>
     </form>
   );

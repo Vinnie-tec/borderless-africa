@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Roboto } from "next/font/google";
+import { ToastProvider } from "@/components/toast/toast-provider";
 import "./globals.scss";
 
 const inter = Inter({
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         data-new-gr-c-s-check-loaded="14.1345.0"
         data-gr-ext-installed=""
       >
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

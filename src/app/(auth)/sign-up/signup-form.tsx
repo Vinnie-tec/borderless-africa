@@ -2,26 +2,25 @@
 
 import { useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth-client";
+import { useToast } from "@/components/toast/toast-provider";
+import styles from "./signup-form.module.scss";
 
 export default function SignupForm() {
+  const toast = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setError("");
-    setMessage("");
-
-    // Confirm both password fields match before contacting the server.
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      toast.error("Passwords don’t match", {
+        description: "Check both password fields and try again.",
+      });
       return;
     }
 
@@ -36,33 +35,42 @@ export default function SignupForm() {
       });
 
       if (error) {
-        setError(error.message || "Unable to create your account.");
+        toast.error("We couldn’t create your account", {
+          description: error.message || "Please check your details and try again.",
+        });
         return;
       }
 
-      setMessage(
-        "Account created! Check your terminal for the email verification link."
-      );
+      toast.success("Your account is ready", {
+        description: "Check the development server terminal for your verification link.",
+        duration: 7000,
+      });
 
-      // Clear the form after successful registration.
       setName("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
     } catch {
-      setError("Something went wrong. Please try again.");
+      toast.error("Something went wrong", {
+        description: "Please try creating your account again in a moment.",
+      });
     } finally {
       setIsPending(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div>
+    <form
+      aria-busy={isPending}
+      className={styles.form}
+      onSubmit={handleSubmit}
+    >
+      <div className={styles.field}>
         <label htmlFor="name">Full name</label>
         <input
           id="name"
           type="text"
+          placeholder="Your name"
           value={name}
           onChange={(event) => setName(event.target.value)}
           required
@@ -70,11 +78,12 @@ export default function SignupForm() {
         />
       </div>
 
-      <div>
+      <div className={styles.field}>
         <label htmlFor="email">Email address</label>
         <input
           id="email"
           type="email"
+          placeholder="you@example.com"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           required
@@ -82,24 +91,27 @@ export default function SignupForm() {
         />
       </div>
 
-      <div>
+      <div className={styles.field}>
         <label htmlFor="password">Password</label>
         <input
           id="password"
           type="password"
+          placeholder="At least 8 characters"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
           minLength={8}
           autoComplete="new-password"
         />
+        <p className={styles.passwordHint}>Use at least 8 characters.</p>
       </div>
 
-      <div>
+      <div className={styles.field}>
         <label htmlFor="confirmPassword">Confirm password</label>
         <input
           id="confirmPassword"
           type="password"
+          placeholder="Enter your password again"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
           required
@@ -108,11 +120,20 @@ export default function SignupForm() {
         />
       </div>
 
-      {error && <p role="alert">{error}</p>}
-      {message && <p role="status">{message}</p>}
-
-      <button type="submit" disabled={isPending}>
-        {isPending ? "Creating account..." : "Create account"}
+      <button className={styles.submit} type="submit" disabled={isPending}>
+        {isPending ? (
+          <>
+            <span aria-hidden="true" className={styles.spinner} />
+            Creating your account...
+          </>
+        ) : (
+          <>
+            Create account
+            <span aria-hidden="true" className={styles.arrow}>
+              →
+            </span>
+          </>
+        )}
       </button>
     </form>
   );

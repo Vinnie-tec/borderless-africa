@@ -1,0 +1,356 @@
+.page {
+  display: grid;
+  min-height: 100svh;
+  padding: clamp(14px, 3vw, 36px);
+  place-items: center;
+}
+
+.frame {
+  display: grid;
+  width: min(100%, 1320px);
+  min-height: min(820px, calc(100svh - clamp(28px, 6vw, 72px)));
+  grid-template-columns: minmax(0, 0.94fr) minmax(420px, 1.06fr);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 30px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(28px);
+  animation: frame-enter 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.story {
+  position: relative;
+  display: flex;
+  min-height: 680px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: clamp(30px, 5vw, 66px);
+  background:
+    radial-gradient(ellipse at 82% 65%, rgba(35, 122, 207, 0.48), transparent 38%),
+    radial-gradient(ellipse at 15% 92%, rgba(0, 102, 204, 0.24), transparent 46%),
+    #17283b;
+  color: #f7f9fc;
+  isolation: isolate;
+}
+
+.story::before,
+.story::after {
+  position: absolute;
+  z-index: -1;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.story::before {
+  top: 24%;
+  right: -210px;
+  width: 540px;
+  aspect-ratio: 1;
+}
+
+.story::after {
+  top: 32%;
+  right: -146px;
+  width: 410px;
+  aspect-ratio: 1;
+}
+
+.brand,
+.mobileBrand {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+.brandMark {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: -0.08em;
+  backdrop-filter: blur(12px);
+}
+
+.storyCopy {
+  position: relative;
+  z-index: 1;
+  max-width: 430px;
+  margin: clamp(76px, 11vh, 132px) 0 0;
+  animation: content-enter 650ms 80ms both;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  color: #9dcaff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  width: 20px;
+  height: 1px;
+  background: currentColor;
+  content: "";
+}
+
+.storyCopy h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(44px, 5.2vw, 70px);
+  font-weight: 500;
+  letter-spacing: -0.075em;
+  line-height: 0.99;
+}
+
+.storyCopy h2 span {
+  display: block;
+  color: #9dcaff;
+}
+
+.storyDescription {
+  max-width: 350px;
+  margin: 24px 0 0;
+  color: rgba(245, 248, 252, 0.7);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.artwork {
+  position: absolute;
+  right: 7%;
+  bottom: 13%;
+  display: grid;
+  width: 250px;
+  height: 250px;
+  place-items: center;
+  opacity: 0.88;
+}
+
+.artworkRing {
+  position: relative;
+  display: grid;
+  width: 178px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid rgba(183, 217, 255, 0.36);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 22px rgba(183, 217, 255, 0.045),
+    0 0 0 44px rgba(183, 217, 255, 0.035);
+  animation: float 6s ease-in-out infinite;
+}
+
+.artworkRing::before,
+.artworkRing::after {
+  position: absolute;
+  width: 128px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(183, 217, 255, 0.28);
+  border-radius: 50%;
+  content: "";
+}
+
+.artworkRing::after {
+  width: 78px;
+  border-color: rgba(183, 217, 255, 0.45);
+}
+
+.artworkCore {
+  z-index: 1;
+  width: 34px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #f5fbff, #76b7ff 42%, #1267bd);
+  box-shadow: 0 0 35px rgba(102, 178, 255, 0.6);
+}
+
+.artworkDot {
+  position: absolute;
+  top: 23px;
+  right: 35px;
+  width: 8px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #d3eaff;
+  box-shadow: 0 0 18px rgba(180, 218, 255, 0.9);
+}
+
+.artworkCaption {
+  position: absolute;
+  right: 0;
+  bottom: -5px;
+  color: rgba(245, 248, 252, 0.64);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.storyFooter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  color: rgba(245, 248, 252, 0.68);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.onlineMark {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7dd7a0;
+  box-shadow: 0 0 0 4px rgba(125, 215, 160, 0.12);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(34px, 7vw, 96px);
+}
+
+.mobileBrand {
+  display: none;
+}
+
+.formContent {
+  width: 100%;
+  max-width: 440px;
+  margin: auto;
+  animation: content-enter 650ms 120ms both;
+}
+
+.privacyNote {
+  max-width: 360px;
+  margin: 32px auto 0;
+  color: var(--color-muted);
+  font-size: 10px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+@keyframes frame-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  50% {
+    transform: translateY(-7px) rotate(5deg);
+  }
+}
+
+@media (max-width: 880px) {
+  .frame {
+    min-height: calc(100svh - 36px);
+    grid-template-columns: minmax(0, 0.85fr) minmax(390px, 1.15fr);
+  }
+
+  .story {
+    padding: 34px;
+  }
+
+  .storyCopy h2 {
+    font-size: clamp(42px, 6vw, 58px);
+  }
+
+  .artwork {
+    right: -25px;
+    bottom: 14%;
+    transform: scale(0.8);
+  }
+
+  .content {
+    padding: 48px 38px;
+  }
+}
+
+@media (max-width: 680px) {
+  .page {
+    padding: 0;
+  }
+
+  .frame {
+    width: 100%;
+    min-height: 100svh;
+    grid-template-columns: 1fr;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .story {
+    display: none;
+  }
+
+  .content {
+    width: min(100%, 520px);
+    min-height: 100svh;
+    justify-self: center;
+    padding: 28px clamp(22px, 7vw, 38px) 22px;
+  }
+
+  .mobileBrand {
+    display: inline-flex;
+    margin-bottom: clamp(42px, 10vh, 78px);
+  }
+
+  .formContent {
+    margin: 0 auto;
+  }
+
+  .privacyNote {
+    margin-top: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame,
+  .storyCopy,
+  .formContent,
+  .artworkRing {
+    animation: none;
+  }
+}
