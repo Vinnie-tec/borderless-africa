@@ -3,12 +3,15 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 
 import { db } from "@/lib/db";
 
+import * as schema from "@/lib/db/schema";
+
 export const auth = betterAuth({
   // Connect Better Auth to our existing PostgreSQL database.
   database: drizzleAdapter(db, {
     provider: "pg",
+    schema,
   }),
-
+        
   // Application URL and secret.
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
