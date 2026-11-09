@@ -27,7 +27,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-new-gr-c-s-check-loaded="14.1345.0"
       data-gr-ext-installed=""
     >
-      <body className={`${inter.variable} ${roboto.variable}`}>{children}</body>
+      <body
+        className={`${inter.variable} ${roboto.variable}`}
+        data-new-gr-c-s-check-loaded="14.1345.0"
+        data-gr-ext-installed=""
+      >
+        {children}
+      </body>
     </html>
   );
 }

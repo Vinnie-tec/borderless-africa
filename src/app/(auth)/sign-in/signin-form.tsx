@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import {
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { authClient } from "@/lib/auth-client";
@@ -13,13 +17,19 @@ export default function SigninForm() {
   const [password, setPassword] = useState("");
 
   const [error, setError] = useState("");
-  const [isPending, setIsPending] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Tracks the pending navigation to the dashboard.
+  const [isNavigating, startTransition] = useTransition();
+
+  // The button stays pending during submission OR navigation.
+  const isPending = isSubmitting || isNavigating;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError("");
-    setIsPending(true);
+    setIsSubmitting(true);
 
     try {
       const { error } = await authClient.signIn.email({
@@ -32,13 +42,14 @@ export default function SigninForm() {
         return;
       }
 
-      // Navigate after Better Auth confirms successful authentication.
-      router.replace("/dashboard");
-      router.refresh();
+      // Authentication succeeded. Now begin navigation.
+      startTransition(() => {
+        router.replace("/dashboard");
+      });
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
-      setIsPending(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -67,7 +78,11 @@ export default function SigninForm() {
       {error && <p role="alert">{error}</p>}
 
       <button type="submit" disabled={isPending}>
-        {isPending ? "Signing in..." : "Sign in"}
+        {isSubmitting
+          ? "Signing in..."
+          : isNavigating
+            ? "Opening dashboard..."
+            : "Sign in"}
       </button>
     </form>
   );
