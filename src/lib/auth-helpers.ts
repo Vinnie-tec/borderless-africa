@@ -30,3 +30,17 @@ export async function requireVerifiedUser() {
 
   return session;
 }
+
+/**
+ * Require an authenticated user with a verified email
+ * and the administrator role.
+ */
+export async function requireAdmin() {
+  const session = await requireVerifiedUser();
+
+  if (session.user.role !== "admin") {
+    redirect("/dashboard");
+  }
+
+  return session;
+}
