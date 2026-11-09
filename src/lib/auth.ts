@@ -11,7 +11,7 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
-        
+
   // Application URL and secret.
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
@@ -21,6 +21,11 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
     minPasswordLength: 8,
+    // Reset links expire after one hour.
+    resetPasswordTokenExpiresIn: 60 * 60,
+
+    // Changing a password invalidates the user's existing sessions.
+    revokeSessionsOnPasswordReset: true,
 
     // Development only: print the password reset link.
     // Later, we'll replace this with a real email provider.

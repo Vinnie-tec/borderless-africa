@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/auth-helpers";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 
 export default async function DashboardContent() {
   const session = await requireAuth();
@@ -14,6 +15,7 @@ export default async function DashboardContent() {
         Email verification:{" "}
         {session.user.emailVerified ? "Verified" : "Not verified"}
       </p>
+      <SignOutButton />
     </main>
   );
 }
