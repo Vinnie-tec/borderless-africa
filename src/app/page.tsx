@@ -28,7 +28,8 @@ export default function Home() {
           <div className={styles.copy}>
             <p className={styles.eyebrow}>A new point of view</p>
             <h1 className={styles.title} id="home-title">
-              Hello,
+              Hello, 
+
               <span>world.</span>
             </h1>
             <p className={styles.description}>
