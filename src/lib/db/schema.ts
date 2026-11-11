@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   pgEnum,
   pgTable,
@@ -11,6 +11,7 @@ import {
   varchar,
   integer,
   numeric,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -126,6 +127,71 @@ export const jobs = pgTable(
     index("jobs_status_created_at_idx").on(table.status, table.createdAt),
   ],
 );
+
+export const proposalStatusEnum = pgEnum("proposal_status", [
+  "pending",
+  "negotiating",
+  "accepted",
+  "rejected",
+  "withdrawn",
+  "expired",
+]);
+
+export const proposals = pgTable(
+  "proposals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "restrict" }),
+
+    freelancerId: text("freelancer_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    coverLetter: text("cover_letter").notNull(),
+
+    proposedPrice: numeric("proposed_price", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+
+    currency: varchar("currency", { length: 3 }).notNull(),
+
+    deliveryDays: integer("delivery_days").notNull(),
+
+    status: proposalStatusEnum("status").default("pending").notNull(),
+
+    submittedAt: timestamp("submitted_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("proposals_job_id_idx").on(table.jobId),
+    index("proposals_freelancer_id_idx").on(table.freelancerId),
+
+    // Prevent duplicate active applications by the same freelancer.
+    uniqueIndex("proposals_active_freelancer_job_unique")
+      .on(table.jobId, table.freelancerId)
+      .where(sql`${table.status} IN ('pending', 'negotiating', 'accepted')`),
+
+    // A job can have only one accepted proposal.
+    uniqueIndex("proposals_one_accepted_per_job_unique")
+      .on(table.jobId)
+      .where(sql`${table.status} = 'accepted'`),
+  ],
+);
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 export const session = pgTable(
   "session",

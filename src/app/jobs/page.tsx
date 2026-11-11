@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
+import Link from "next/link";
 
 import { db } from "@/lib/db";
 import { jobs } from "@/lib/db/schema";
@@ -28,8 +29,8 @@ async function PublicJobsContent() {
     .where(
       and(
         eq(jobs.status, "open"),
-        or(isNull(jobs.closingAt), gt(jobs.closingAt, now))
-      )
+        or(isNull(jobs.closingAt), gt(jobs.closingAt, now)),
+      ),
     )
     .orderBy(desc(jobs.createdAt))
     .limit(50);
@@ -40,16 +41,16 @@ async function PublicJobsContent() {
       <p>Explore opportunities from clients across Africa.</p>
 
       <p>
-        {availableJobs.length}{" "}
-        {availableJobs.length === 1 ? "job" : "jobs"} available
+        {availableJobs.length} {availableJobs.length === 1 ? "job" : "jobs"}{" "}
+        available
       </p>
 
       {availableJobs.length === 0 ? (
         <section>
           <h2>No jobs available yet</h2>
           <p>
-            Check back later. New opportunities will appear here
-            when clients publish them.
+            Check back later. New opportunities will appear here when clients
+            publish them.
           </p>
         </section>
       ) : (
@@ -62,8 +63,9 @@ async function PublicJobsContent() {
 
             return (
               <article key={job.id}>
-                <h2>{job.title}</h2>
-
+                <h2>
+                  <Link href={`/jobs/${job.id}`}>{job.title}</Link>
+                </h2>
                 <p>{job.description}</p>
 
                 <p>Category: {job.category}</p>
