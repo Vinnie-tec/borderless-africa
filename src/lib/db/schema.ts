@@ -7,6 +7,10 @@ import {
   primaryKey,
   index,
   boolean,
+  uuid,
+  varchar,
+  integer,
+  numeric,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -54,6 +58,72 @@ export const userCapabilities = pgTable(
 
     // Helps us find all users with a particular capability.
     index("user_capabilities_capability_idx").on(table.capability),
+  ],
+);
+
+export const jobStatusEnum = pgEnum("job_status", [
+  "draft",
+  "open",
+  "closed",
+  "cancelled",
+]);
+
+export const jobs = pgTable(
+  "jobs",
+  {
+    // Unique identifier for each job.
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    // The user who owns and posted this job.
+    clientId: text("client_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    title: varchar("title", { length: 160 }).notNull(),
+
+    description: text("description").notNull(),
+
+    // We'll connect this to a proper categories table later.
+    category: varchar("category", { length: 100 }).notNull(),
+
+    // PostgreSQL numeric preserves decimal precision for money.
+    budget: numeric("budget", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+
+    // ISO currency code, e.g. NGN, KES, GHS, USD.
+    currency: varchar("currency", { length: 3 }).notNull(),
+
+    // Expected delivery time in calendar days.
+    deliveryDays: integer("delivery_days").notNull(),
+
+    status: jobStatusEnum("status").default("draft").notNull(),
+
+    // Optional deadline for accepting proposals.
+    closingAt: timestamp("closing_at", {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    // Quickly retrieve jobs belonging to a client.
+    index("jobs_client_id_idx").on(table.clientId),
+
+    // Useful for browsing open jobs.
+    index("jobs_status_created_at_idx").on(table.status, table.createdAt),
   ],
 );
 
