@@ -4,6 +4,8 @@
 import { db } from "@/lib/db";
 import { jobs } from "@/lib/db/schema";
 import { requireClient } from "@/lib/marketplace/authorization";
+import { and, eq, gt, isNull, or } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 
 const supportedCurrencies = ["NGN", "KES", "GHS"] as const;
 
@@ -180,6 +182,69 @@ export async function createJob(
     return {
       success: false,
       message: "Could not create your job. Please try again.",
+    };
+  }
+}
+
+
+export async function publishJob(jobId: unknown) {
+  // Authenticate and verify the user's client capability.
+  const session = await requireClient();
+
+  // Validate the supplied job ID.
+  if (
+    typeof jobId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId)
+  ) {
+    return {
+      success: false,
+      message: "Invalid job ID.",
+    };
+  }
+
+  try {
+    // Update only if every ownership and publishing condition is met.
+    const [publishedJob] = await db
+      .update(jobs)
+      .set({
+        status: "open",
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(jobs.id, jobId),
+          eq(jobs.clientId, session.user.id),
+          eq(jobs.status, "draft"),
+          or(
+            isNull(jobs.closingAt),
+            gt(jobs.closingAt, new Date())
+          )
+        )
+      )
+      .returning({
+        id: jobs.id,
+      });
+
+    // No matching row means one or more conditions failed.
+    if (!publishedJob) {
+      return {
+        success: false,
+        message:
+          "This job cannot be published. Check its ownership, status and closing date.",
+      };
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/jobs");
+
+    return {
+      success: true,
+      message: "Your job has been published successfully.",
+    };
+  } catch {
+    return {
+      success: false,
+      message: "Could not publish this job. Please try again.",
     };
   }
 }
