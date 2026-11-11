@@ -4,6 +4,7 @@ import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { jobs } from "@/lib/db/schema";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 type JobDetailsPageProps = {
   params: Promise<{
@@ -11,9 +12,7 @@ type JobDetailsPageProps = {
   }>;
 };
 
-async function JobDetailsContent({
-  params,
-}: JobDetailsPageProps) {
+async function JobDetailsContent({ params }: JobDetailsPageProps) {
   await connection();
 
   const { jobId } = await params;
@@ -21,7 +20,7 @@ async function JobDetailsContent({
   // Validate the UUID before querying PostgreSQL.
   const isValidUUID =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      jobId
+      jobId,
     );
 
   if (!isValidUUID) {
@@ -47,8 +46,8 @@ async function JobDetailsContent({
       and(
         eq(jobs.id, jobId),
         eq(jobs.status, "open"),
-        or(isNull(jobs.closingAt), gt(jobs.closingAt, now))
-      )
+        or(isNull(jobs.closingAt), gt(jobs.closingAt, now)),
+      ),
     )
     .limit(1);
 
@@ -106,16 +105,12 @@ async function JobDetailsContent({
         </section>
       )}
 
-      <button type="button" disabled>
-        Proposal submission coming next
-      </button>
+      <Link href={`/jobs/${job.id}/proposals/new`}>Submit a proposal</Link>
     </main>
   );
 }
 
-export default function JobDetailsPage({
-  params,
-}: JobDetailsPageProps) {
+export default function JobDetailsPage({ params }: JobDetailsPageProps) {
   return (
     <Suspense fallback={<p>Loading job details...</p>}>
       <JobDetailsContent params={params} />
