@@ -1,5 +1,13 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import {
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  primaryKey,
+  index,
+  boolean,
+} from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -12,12 +20,42 @@ export const user = pgTable("user", {
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
-  
+
   // Every account receives a role.
   // Public registration cannot choose this value.
   role: text("role").default("user").notNull(),
-
 });
+
+// A user can operate in one or both marketplace modes.
+export const marketplaceCapabilityEnum = pgEnum("marketplace_capability", [
+  "client",
+  "freelancer",
+]);
+
+// Stores the marketplace capabilities enabled for each user.
+//
+// A composite primary key prevents the same capability
+// from being assigned to the same user more than once.
+export const userCapabilities = pgTable(
+  "user_capabilities",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    capability: marketplaceCapabilityEnum("capability").notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.capability],
+    }),
+
+    // Helps us find all users with a particular capability.
+    index("user_capabilities_capability_idx").on(table.capability),
+  ],
+);
 
 export const session = pgTable(
   "session",
