@@ -10,6 +10,8 @@ import { jobs, proposals, proposalOffers, user } from "@/lib/db/schema";
 import CounterofferForm from "@/components/proposals/counteroffer-form";
 import OfferHistory from "@/components/proposals/offer-history";
 
+import AcceptProposalButton from "@/components/proposals/accept-proposal-button";
+
 type ProposalInboxPageProps = {
   params: Promise<{
     jobId: string;
@@ -125,6 +127,10 @@ async function ProposalInboxContent({ params }: ProposalInboxPageProps) {
 
             const isClientsTurn = lastSenderId !== session.user.id;
 
+            const canNegotiate =
+              proposal.status === "pending" ||
+              proposal.status === "negotiating";
+
             return (
               <article key={proposal.id}>
                 <h3>{proposal.freelancerName}</h3>
@@ -176,6 +182,10 @@ async function ProposalInboxContent({ params }: ProposalInboxPageProps) {
                       }
                     />
                   )}
+
+                {canNegotiate && isClientsTurn && (
+                  <AcceptProposalButton proposalId={proposal.id} />
+                )}
               </article>
             );
           })}
