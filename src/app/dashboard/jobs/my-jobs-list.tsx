@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { publishJob } from "@/lib/marketplace/jobs/actions";
 import { useToast } from "@/components/toast/toast-provider";
+import Link from "next/link";
 
 type Job = {
   id: string;
@@ -66,6 +67,8 @@ export default function MyJobsList({ jobs }: { jobs: Job[] }) {
           <p>Delivery: {job.deliveryDays} days</p>
 
           <p>Status: {job.status}</p>
+
+          <Link href={`/dashboard/jobs/${job.id}/proposals`}>View proposals</Link>
 
           {job.status === "draft" && (
             <button

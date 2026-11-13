@@ -63,7 +63,7 @@ async function JobDetailsContent({ params }: JobDetailsPageProps) {
 
   return (
     <main>
-      <a href="/jobs">← Back to jobs</a>
+      <Link href="/jobs">← Back to jobs</Link>
 
       <h1>{job.title}</h1>
 
