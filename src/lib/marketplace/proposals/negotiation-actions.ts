@@ -29,13 +29,13 @@ function isValidUUID(value: unknown): value is string {
   return (
     typeof value === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value
+      value,
     )
   );
 }
 
 export async function createCounteroffer(
-  input: CreateCounterofferInput
+  input: CreateCounterofferInput,
 ): Promise<CreateCounterofferResult> {
   const session = await requireVerifiedUser();
   const userId = session.user.id;
@@ -139,10 +139,7 @@ export async function createCounteroffer(
         };
       }
 
-      if (
-        proposal.status !== "pending" &&
-        proposal.status !== "negotiating"
-      ) {
+      if (proposal.status !== "pending" && proposal.status !== "negotiating") {
         return {
           success: false as const,
           message: "This proposal is no longer open for negotiation.",
@@ -153,10 +150,11 @@ export async function createCounteroffer(
       const [latestOffer] = await tx
         .select({
           senderId: proposalOffers.senderId,
+          offerNumber: proposalOffers.offerNumber,
         })
         .from(proposalOffers)
         .where(eq(proposalOffers.proposalId, proposal.id))
-        .orderBy(desc(proposalOffers.createdAt))
+        .orderBy(desc(proposalOffers.offerNumber))
         .limit(1);
 
       const lastSenderId = latestOffer?.senderId ?? proposal.freelancerId;
@@ -177,6 +175,7 @@ export async function createCounteroffer(
           proposedPrice: priceString,
           deliveryDays,
           message,
+          offerNumber: (latestOffer?.offerNumber ?? 0) + 1,
         })
         .returning({
           id: proposalOffers.id,
