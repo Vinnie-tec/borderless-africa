@@ -3,6 +3,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 
 import MarketplaceSetup from "./marketplace-setup";
 import { getMarketplaceCapabilities } from "@/lib/marketplace/capabilities";
+import Link from "next/link";
 
 export default async function DashboardContent() {
   const session = await requireAuth();
@@ -32,7 +33,7 @@ export default async function DashboardContent() {
           <a href="/verify-email"> Verify email</a>
         </p>
       )}
-
+    <Link href="/dashboard/proposals">My proposals</Link>
       <SignOutButton />
     </main>
   );

@@ -235,6 +235,80 @@ export const proposalOffers = pgTable(
     ),
   ],
 );
+
+export const contractStatusEnum = pgEnum("contract_status", [
+  "awaiting_payment",
+  "active",
+  "delivered",
+  "revision_requested",
+  "completed",
+  "cancelled",
+  "disputed",
+]);
+
+export const contracts = pgTable(
+  "contracts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "restrict" }),
+
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .unique()
+      .references(() => proposals.id, { onDelete: "restrict" }),
+
+    clientId: text("client_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    freelancerId: text("freelancer_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    // Immutable snapshot of the agreed terms.
+    title: varchar("title", { length: 160 }).notNull(),
+    scope: text("scope").notNull(),
+
+    agreedPrice: numeric("agreed_price", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+
+    currency: varchar("currency", { length: 3 }).notNull(),
+
+    deliveryDays: integer("delivery_days").notNull(),
+
+    revisionAllowance: integer("revision_allowance")
+      .default(2)
+      .notNull(),
+
+    status: contractStatusEnum("status")
+      .default("awaiting_payment")
+      .notNull(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("contracts_one_per_job_unique").on(table.jobId),
+    index("contracts_client_id_idx").on(table.clientId),
+    index("contracts_freelancer_id_idx").on(table.freelancerId),
+    index("contracts_status_idx").on(table.status),
+  ]
+);
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 export const session = pgTable(
