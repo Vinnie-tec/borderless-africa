@@ -68,8 +68,6 @@ export default function MyJobsList({ jobs }: { jobs: Job[] }) {
 
           <p>Status: {job.status}</p>
 
-          <Link href={`/dashboard/jobs/${job.id}/proposals`}>View proposals</Link>
-
           {job.status === "draft" && (
             <button
               type="button"
@@ -79,6 +77,10 @@ export default function MyJobsList({ jobs }: { jobs: Job[] }) {
               {publishingId === job.id ? "Publishing..." : "Publish job"}
             </button>
           )}
+          <Link href={`/dashboard/jobs/${job.id}/proposals`}>
+            View proposals
+          </Link>
+          <Link href="/dashboard/contracts">My contracts</Link>
         </article>
       ))}
     </section>
