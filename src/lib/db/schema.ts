@@ -241,6 +241,7 @@ export const contractStatusEnum = pgEnum("contract_status", [
   "active",
   "delivered",
   "revision_requested",
+  "cancellation_pending",
   "completed",
   "cancelled",
   "disputed",
@@ -362,6 +363,205 @@ export const contractDeliveries = pgTable(
 
     index("contract_deliveries_submitted_by_idx").on(
       table.submittedById
+    ),
+  ]
+);
+
+export const cancellationRequestStatusEnum = pgEnum(
+  "cancellation_request_status",
+  ["pending", "accepted", "rejected", "escalated"]
+);
+
+export const disputeStatusEnum = pgEnum("dispute_status", [
+  "open",
+  "under_review",
+  "resolved",
+]);
+
+export const disputeOriginEnum = pgEnum("dispute_origin", [
+  "cancellation",
+  "delivery",
+  "other",
+]);
+
+export const cancellationRequests = pgTable(
+  "cancellation_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contracts.id, { onDelete: "restrict" }),
+
+    requesterId: text("requester_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    reason: text("reason").notNull(),
+
+    // Preserve the status so it can be restored if cancellation is rejected.
+    previousContractStatus: contractStatusEnum(
+      "previous_contract_status"
+    ).notNull(),
+
+    status: cancellationRequestStatusEnum("status")
+      .default("pending")
+      .notNull(),
+
+    responseMessage: text("response_message"),
+
+    responseDeadline: timestamp("response_deadline", {
+      withTimezone: true,
+    }).notNull(),
+
+    respondedAt: timestamp("responded_at", {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("cancellation_requests_contract_id_idx").on(table.contractId),
+
+    index("cancellation_requests_status_deadline_idx").on(
+      table.status,
+      table.responseDeadline
+    ),
+
+    uniqueIndex("cancellation_requests_one_pending_per_contract")
+      .on(table.contractId)
+      .where(sql`${table.status} = 'pending'`),
+  ]
+);
+
+export const disputes = pgTable(
+  "disputes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contracts.id, { onDelete: "restrict" }),
+
+    cancellationRequestId: uuid("cancellation_request_id")
+      .references(() => cancellationRequests.id, {
+        onDelete: "restrict",
+      }),
+
+    openedById: text("opened_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    origin: disputeOriginEnum("origin").notNull(),
+
+    reason: text("reason").notNull(),
+
+    status: disputeStatusEnum("status")
+      .default("open")
+      .notNull(),
+
+    // Admin's recorded decision and explanation.
+    decision: varchar("decision", { length: 100 }),
+
+    resolution: text("resolution"),
+
+    decidedById: text("decided_by_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
+
+    decidedAt: timestamp("decided_at", {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("disputes_contract_id_idx").on(table.contractId),
+
+    index("disputes_status_created_at_idx").on(
+      table.status,
+      table.createdAt
+    ),
+
+    uniqueIndex("disputes_one_active_per_contract")
+      .on(table.contractId)
+      .where(sql`${table.status} IN ('open', 'under_review')`),
+  ]
+);
+
+export const disputeMessages = pgTable(
+  "dispute_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    disputeId: uuid("dispute_id")
+      .notNull()
+      .references(() => disputes.id, { onDelete: "restrict" }),
+
+    senderId: text("sender_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    message: text("message").notNull(),
+
+    attachmentUrl: text("attachment_url"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("dispute_messages_dispute_created_at_idx").on(
+      table.disputeId,
+      table.createdAt
+    ),
+  ]
+);
+
+export const disputeEvents = pgTable(
+  "dispute_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    disputeId: uuid("dispute_id")
+      .notNull()
+      .references(() => disputes.id, { onDelete: "restrict" }),
+
+    actorId: text("actor_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    action: varchar("action", { length: 100 }).notNull(),
+
+    details: text("details").notNull(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("dispute_events_dispute_created_at_idx").on(
+      table.disputeId,
+      table.createdAt
     ),
   ]
 );
