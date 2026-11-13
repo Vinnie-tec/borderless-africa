@@ -191,6 +191,44 @@ export const proposals = pgTable(
       .where(sql`${table.status} = 'accepted'`),
   ],
 );
+
+export const proposalOffers = pgTable(
+  "proposal_offers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id, { onDelete: "restrict" }),
+
+    // The client or freelancer who made this counteroffer.
+    senderId: text("sender_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    proposedPrice: numeric("proposed_price", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+
+    deliveryDays: integer("delivery_days").notNull(),
+
+    message: text("message").notNull(),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("proposal_offers_proposal_id_created_at_idx").on(
+      table.proposalId,
+      table.createdAt,
+    ),
+    index("proposal_offers_sender_id_idx").on(table.senderId),
+  ],
+);
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 export const session = pgTable(
