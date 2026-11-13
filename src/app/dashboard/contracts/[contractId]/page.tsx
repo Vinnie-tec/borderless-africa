@@ -1,12 +1,14 @@
-
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 import { requireVerifiedUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { contracts } from "@/lib/db/schema";
+
+import DeliveryForm from "@/components/contracts/delivery-form";
+import { contractDeliveries } from "@/lib/db/schema";
 
 type ContractPageProps = {
   params: Promise<{
@@ -14,9 +16,7 @@ type ContractPageProps = {
   }>;
 };
 
-async function ContractContent({
-  params,
-}: ContractPageProps) {
+async function ContractContent({ params }: ContractPageProps) {
   await connection();
 
   const session = await requireVerifiedUser();
@@ -40,9 +40,9 @@ async function ContractContent({
         eq(contracts.id, contractId),
         or(
           eq(contracts.clientId, session.user.id),
-          eq(contracts.freelancerId, session.user.id)
-        )
-      )
+          eq(contracts.freelancerId, session.user.id),
+        ),
+      ),
     )
     .limit(1);
 
@@ -50,10 +50,14 @@ async function ContractContent({
     notFound();
   }
 
+  const deliveries = await db
+    .select()
+    .from(contractDeliveries)
+    .where(eq(contractDeliveries.contractId, contract.id))
+    .orderBy(asc(contractDeliveries.submissionNumber));
+
   const userRole =
-    contract.clientId === session.user.id
-      ? "Client"
-      : "Freelancer";
+    contract.clientId === session.user.id ? "Client" : "Freelancer";
 
   const formattedPrice = new Intl.NumberFormat("en", {
     style: "currency",
@@ -91,13 +95,56 @@ async function ContractContent({
         <p>Created: {contract.createdAt.toLocaleString()}</p>
         <p>Last updated: {contract.updatedAt.toLocaleString()}</p>
       </section>
+
+      <section>
+        <h2>Delivery history</h2>
+
+        {deliveries.length === 0 ? (
+          <p>No work has been submitted yet.</p>
+        ) : (
+          deliveries.map((delivery) => (
+            <article key={delivery.id}>
+              <h3>Submission #{delivery.submissionNumber}</h3>
+
+              <p>{delivery.message}</p>
+
+              {delivery.attachmentUrl && (
+                <p>
+                  <a
+                    href={delivery.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View submitted work
+                  </a>
+                </p>
+              )}
+
+              <p>Status: {delivery.status.replaceAll("_", " ")}</p>
+
+              <p>Submitted: {delivery.submittedAt.toLocaleString()}</p>
+
+              {delivery.reviewMessage && (
+                <div>
+                  <h4>Client feedback</h4>
+                  <p>{delivery.reviewMessage}</p>
+                </div>
+              )}
+            </article>
+          ))
+        )}
+      </section>
+
+      {userRole === "Freelancer" &&
+        (contract.status === "active" ||
+          contract.status === "revision_requested") && (
+          <DeliveryForm contractId={contract.id} />
+        )}
     </section>
   );
 }
 
-export default function ContractDetailsPage(
-  props: ContractPageProps
-) {
+export default function ContractDetailsPage(props: ContractPageProps) {
   return (
     <Suspense fallback={<p>Loading contract...</p>}>
       <ContractContent params={props.params} />
