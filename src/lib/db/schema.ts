@@ -281,13 +281,11 @@ export const contracts = pgTable(
 
     deliveryDays: integer("delivery_days").notNull(),
 
-    revisionAllowance: integer("revision_allowance")
-      .default(2)
-      .notNull(),
+    revisionAllowance: integer("revision_allowance").default(2).notNull(),
 
-    status: contractStatusEnum("status")
-      .default("awaiting_payment")
-      .notNull(),
+    status: contractStatusEnum("status").default("awaiting_payment").notNull(),
+
+    revisionsUsed: integer("revisions_used").default(0).notNull(),
 
     createdAt: timestamp("created_at", {
       withTimezone: true,
@@ -307,6 +305,64 @@ export const contracts = pgTable(
     index("contracts_client_id_idx").on(table.clientId),
     index("contracts_freelancer_id_idx").on(table.freelancerId),
     index("contracts_status_idx").on(table.status),
+  ],
+);
+
+export const deliveryStatusEnum = pgEnum("delivery_status", [
+  "submitted",
+  "revision_requested",
+  "approved",
+]);
+
+export const contractDeliveries = pgTable(
+  "contract_deliveries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contracts.id, { onDelete: "restrict" }),
+
+    submittedById: text("submitted_by_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    submissionNumber: integer("submission_number").notNull(),
+
+    message: text("message").notNull(),
+
+    // Optional link to the submitted work.
+    attachmentUrl: text("attachment_url"),
+
+    status: deliveryStatusEnum("status")
+      .default("submitted")
+      .notNull(),
+
+    reviewMessage: text("review_message"),
+
+    submittedAt: timestamp("submitted_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    reviewedAt: timestamp("reviewed_at", {
+      withTimezone: true,
+    }),
+  },
+  (table) => [
+    uniqueIndex("contract_deliveries_submission_unique").on(
+      table.contractId,
+      table.submissionNumber
+    ),
+
+    index("contract_deliveries_contract_id_idx").on(
+      table.contractId
+    ),
+
+    index("contract_deliveries_submitted_by_idx").on(
+      table.submittedById
+    ),
   ]
 );
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

@@ -57,6 +57,13 @@
       "when": 1794582590880,
       "tag": "0007_create-contracts",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794584563143,
+      "tag": "0008_contract-deliveries",
+      "breakpoints": true
     }
   ]
 }
