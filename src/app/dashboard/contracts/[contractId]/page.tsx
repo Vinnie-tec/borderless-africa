@@ -10,6 +10,7 @@ import { contracts } from "@/lib/db/schema";
 import DeliveryForm from "@/components/contracts/delivery-form";
 import { contractDeliveries } from "@/lib/db/schema";
 
+import DeliveryReview from "@/components/contracts/delivery-review";
 type ContractPageProps = {
   params: Promise<{
     contractId: string;
@@ -134,6 +135,14 @@ async function ContractContent({ params }: ContractPageProps) {
           ))
         )}
       </section>
+
+      {userRole === "Client" && contract.status === "delivered" && (
+        <DeliveryReview
+          contractId={contract.id}
+          revisionsUsed={contract.revisionsUsed}
+          revisionAllowance={contract.revisionAllowance}
+        />
+      )}
 
       {userRole === "Freelancer" &&
         (contract.status === "active" ||

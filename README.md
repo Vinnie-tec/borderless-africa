@@ -29,3 +29,13 @@ toast.info("Heads up", { duration: 0 });
 
 Toast methods are `success`, `error`, and `info`. Pass `duration: 0` to keep a
 toast visible until the user dismisses it; otherwise it closes automatically.
+
+Borderless Africa workflow
+1. Job published — client creates an opportunity.
+2. Proposal submitted — freelancer applies with price and delivery terms.
+3. Negotiation — both parties exchange counteroffers.
+4. Contract created — client accepts; agreed terms are snapshotted.
+5. Payment conditions met — contract becomes active.
+6. Delivery submitted — freelancer provides completed work.
+7. Client review — approve or request a revision.
+8. Completion — approved delivery completes the contract.
