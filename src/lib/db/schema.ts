@@ -213,6 +213,8 @@ export const proposalOffers = pgTable(
 
     deliveryDays: integer("delivery_days").notNull(),
 
+    offerNumber: integer("offer_number").notNull(),
+
     message: text("message").notNull(),
 
     createdAt: timestamp("created_at", {
@@ -227,6 +229,10 @@ export const proposalOffers = pgTable(
       table.createdAt,
     ),
     index("proposal_offers_sender_id_idx").on(table.senderId),
+    uniqueIndex("proposal_offers_number_unique").on(
+      table.proposalId,
+      table.offerNumber,
+    ),
   ],
 );
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

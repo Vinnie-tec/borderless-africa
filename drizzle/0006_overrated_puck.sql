@@ -1,0 +1,2 @@
+ALTER TABLE "proposal_offers" ADD COLUMN "offer_number" integer NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "proposal_offers_number_unique" ON "proposal_offers" USING btree ("proposal_id","offer_number");
