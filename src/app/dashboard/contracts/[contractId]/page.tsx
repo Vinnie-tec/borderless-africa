@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 
 import { requireVerifiedUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
-import { contracts } from "@/lib/db/schema";
+import { contracts, disputes } from "@/lib/db/schema";
 
 import DeliveryForm from "@/components/contracts/delivery-form";
 import { contractDeliveries } from "@/lib/db/schema";
@@ -80,6 +80,17 @@ async function ContractContent({ params }: ContractPageProps) {
 
   const userRole =
     contract.clientId === session.user.id ? "Client" : "Freelancer";
+
+  const [activeDispute] =
+    contract.status === "disputed"
+      ? await db
+          .select({
+            id: disputes.id,
+          })
+          .from(disputes)
+          .where(eq(disputes.contractId, contract.id))
+          .limit(1)
+      : [];
 
   const formattedPrice = new Intl.NumberFormat("en", {
     style: "currency",
@@ -187,6 +198,18 @@ async function ContractContent({ params }: ContractPageProps) {
             : null
         }
       />
+
+      {activeDispute && (
+        <section>
+          <h3>Contract dispute</h3>
+
+          <p>This contract has an active dispute.</p>
+
+          <Link href={`/dashboard/disputes/${activeDispute.id}`}>
+            View dispute and submit evidence
+          </Link>
+        </section>
+      )}
     </section>
   );
 }
