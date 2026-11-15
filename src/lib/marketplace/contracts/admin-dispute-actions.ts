@@ -1,4 +1,3 @@
-
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -8,6 +7,8 @@ import { db } from "@/lib/db";
 import {
   disputes,
   disputeEvents,
+  cancellationRequests,
+  contracts,
 } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth-helpers";
 
@@ -19,7 +20,7 @@ type AdminDisputeResult =
   | { success: false; message: string };
 
 export async function startDisputeReview(
-  input: unknown
+  input: unknown,
 ): Promise<AdminDisputeResult> {
   try {
     const session = await requireAdmin();
@@ -30,10 +31,7 @@ export async function startDisputeReview(
 
     const disputeId = (input as { disputeId?: unknown }).disputeId;
 
-    if (
-      typeof disputeId !== "string" ||
-      !UUID_REGEX.test(disputeId)
-    ) {
+    if (typeof disputeId !== "string" || !UUID_REGEX.test(disputeId)) {
       return { success: false, message: "Invalid dispute ID." };
     }
 
@@ -98,7 +96,7 @@ export async function startDisputeReview(
 }
 
 export async function resolveDispute(
-  input: unknown
+  input: unknown,
 ): Promise<AdminDisputeResult> {
   try {
     const session = await requireAdmin();
@@ -114,19 +112,13 @@ export async function resolveDispute(
     };
 
     const disputeId =
-      typeof data.disputeId === "string"
-        ? data.disputeId.trim()
-        : "";
+      typeof data.disputeId === "string" ? data.disputeId.trim() : "";
 
     const decision =
-      typeof data.decision === "string"
-        ? data.decision.trim()
-        : "";
+      typeof data.decision === "string" ? data.decision.trim() : "";
 
     const resolution =
-      typeof data.resolution === "string"
-        ? data.resolution.trim()
-        : "";
+      typeof data.resolution === "string" ? data.resolution.trim() : "";
 
     if (!UUID_REGEX.test(disputeId)) {
       return { success: false, message: "Invalid dispute ID." };
@@ -202,12 +194,8 @@ export async function resolveDispute(
 
     revalidatePath("/admin/disputes");
     revalidatePath(`/admin/disputes/${disputeId}`);
-    revalidatePath(
-      `/dashboard/disputes/${disputeId}`
-    );
-    revalidatePath(
-      `/dashboard/contracts/${result.contractId}`
-    );
+    revalidatePath(`/dashboard/disputes/${disputeId}`);
+    revalidatePath(`/dashboard/contracts/${result.contractId}`);
 
     return { success: true };
   } catch (error) {
@@ -216,6 +204,198 @@ export async function resolveDispute(
     return {
       success: false,
       message: "Unable to resolve dispute.",
+    };
+  }
+}
+
+export async function applyDisputeOutcome(
+  input: unknown,
+): Promise<AdminDisputeResult> {
+  try {
+    const session = await requireAdmin();
+
+    if (!input || typeof input !== "object") {
+      return {
+        success: false,
+        message: "Invalid request.",
+      };
+    }
+
+    const data = input as {
+      disputeId?: unknown;
+      outcome?: unknown;
+    };
+
+    const disputeId =
+      typeof data.disputeId === "string" ? data.disputeId.trim() : "";
+
+    const outcome = data.outcome;
+
+    if (!UUID_REGEX.test(disputeId)) {
+      return {
+        success: false,
+        message: "Invalid dispute ID.",
+      };
+    }
+
+    if (outcome !== "cancel_contract" && outcome !== "resume_contract") {
+      return {
+        success: false,
+        message: "Invalid contract outcome.",
+      };
+    }
+
+    const result = await db.transaction(async (tx) => {
+      // Lock the dispute first so two administrators cannot
+      // apply conflicting outcomes simultaneously.
+      const [dispute] = await tx
+        .select({
+          id: disputes.id,
+          contractId: disputes.contractId,
+          cancellationRequestId: disputes.cancellationRequestId,
+          origin: disputes.origin,
+          status: disputes.status,
+        })
+        .from(disputes)
+        .where(eq(disputes.id, disputeId))
+        .for("update");
+
+      if (!dispute) {
+        return {
+          success: false as const,
+          message: "Dispute not found.",
+        };
+      }
+
+      if (dispute.status !== "resolved") {
+        return {
+          success: false as const,
+          message: "Resolve the dispute before applying a contract outcome.",
+        };
+      }
+
+      if (dispute.origin !== "cancellation" || !dispute.cancellationRequestId) {
+        return {
+          success: false as const,
+          message:
+            "This outcome is currently supported only for cancellation disputes.",
+        };
+      }
+
+      // Lock the contract before changing its status.
+      const [contract] = await tx
+        .select({
+          id: contracts.id,
+          status: contracts.status,
+        })
+        .from(contracts)
+        .where(eq(contracts.id, dispute.contractId))
+        .for("update");
+
+      if (!contract) {
+        return {
+          success: false as const,
+          message: "Associated contract not found.",
+        };
+      }
+
+      if (contract.status !== "disputed") {
+        return {
+          success: false as const,
+          message: "The contract is no longer awaiting a dispute outcome.",
+        };
+      }
+
+      // Retrieve the original contract status saved when
+      // cancellation was requested.
+      const [cancellationRequest] = await tx
+        .select({
+          id: cancellationRequests.id,
+          contractId: cancellationRequests.contractId,
+          status: cancellationRequests.status,
+          previousContractStatus: cancellationRequests.previousContractStatus,
+        })
+        .from(cancellationRequests)
+        .where(eq(cancellationRequests.id, dispute.cancellationRequestId))
+        .for("update");
+
+      if (
+        !cancellationRequest ||
+        cancellationRequest.contractId !== contract.id ||
+        cancellationRequest.status !== "rejected"
+      ) {
+        return {
+          success: false as const,
+          message: "The original cancellation request could not be verified.",
+        };
+      }
+
+      const restorableStatuses = [
+        "awaiting_payment",
+        "active",
+        "delivered",
+        "revision_requested",
+      ] as const;
+
+      if (
+        !restorableStatuses.includes(
+          cancellationRequest.previousContractStatus as (typeof restorableStatuses)[number],
+        )
+      ) {
+        return {
+          success: false as const,
+          message: "The original contract status cannot be restored safely.",
+        };
+      }
+
+      const nextContractStatus =
+        outcome === "cancel_contract"
+          ? "cancelled"
+          : cancellationRequest.previousContractStatus;
+
+      const now = new Date();
+
+      await tx
+        .update(contracts)
+        .set({
+          status: nextContractStatus,
+          updatedAt: now,
+        })
+        .where(eq(contracts.id, contract.id));
+
+      await tx.insert(disputeEvents).values({
+        disputeId: dispute.id,
+        actorId: session.user.id,
+        action: "contract_disposition_applied",
+        details:
+          outcome === "cancel_contract"
+            ? "Administrator applied the dispute outcome: contract cancelled."
+            : `Administrator applied the dispute outcome: contract restored to ${nextContractStatus}.`,
+      });
+
+      return {
+        success: true as const,
+        contractId: contract.id,
+      };
+    });
+
+    if (!result.success) {
+      return result;
+    }
+
+    revalidatePath("/admin/disputes");
+    revalidatePath(`/admin/disputes/${disputeId}`);
+    revalidatePath(`/dashboard/disputes/${disputeId}`);
+    revalidatePath(`/dashboard/contracts/${result.contractId}`);
+    revalidatePath("/dashboard/contracts");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Apply dispute outcome error:", error);
+
+    return {
+      success: false,
+      message: "Unable to apply the dispute outcome.",
     };
   }
 }

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { requireAdmin } from "@/lib/auth-helpers";
+import Link from "next/link";
 
 // This component needs request-specific session information.
 async function AdminContent() {
@@ -10,6 +11,7 @@ async function AdminContent() {
       <h1>Admin authorization successful</h1>
       <p>Signed in as: {session.user.email}</p>
       <p>Role: {session.user.role}</p>
+      <Link href="/admin/disputes">Disputes</Link>
     </main>
   );
 }
