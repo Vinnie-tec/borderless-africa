@@ -11,6 +11,11 @@ import DeliveryForm from "@/components/contracts/delivery-form";
 import { contractDeliveries } from "@/lib/db/schema";
 
 import DeliveryReview from "@/components/contracts/delivery-review";
+import Link from "next/link";
+
+import { cancellationRequests } from "@/lib/db/schema";
+import { CancellationPanel } from "@/components/contracts/cancellation-panel";
+
 type ContractPageProps = {
   params: Promise<{
     contractId: string;
@@ -51,6 +56,22 @@ async function ContractContent({ params }: ContractPageProps) {
     notFound();
   }
 
+  const [pendingCancellationRequest] = await db
+    .select({
+      id: cancellationRequests.id,
+      requesterId: cancellationRequests.requesterId,
+      reason: cancellationRequests.reason,
+      responseDeadline: cancellationRequests.responseDeadline,
+    })
+    .from(cancellationRequests)
+    .where(
+      and(
+        eq(cancellationRequests.contractId, contract.id),
+        eq(cancellationRequests.status, "pending"),
+      ),
+    )
+    .limit(1);
+
   const deliveries = await db
     .select()
     .from(contractDeliveries)
@@ -67,7 +88,7 @@ async function ContractContent({ params }: ContractPageProps) {
 
   return (
     <section>
-      <a href="/dashboard/contracts">Back to contracts</a>
+      <Link href="/dashboard/contracts">Back to contracts</Link>
 
       <h1>{contract.title}</h1>
 
@@ -149,6 +170,23 @@ async function ContractContent({ params }: ContractPageProps) {
           contract.status === "revision_requested") && (
           <DeliveryForm contractId={contract.id} />
         )}
+
+      <CancellationPanel
+        contractId={contract.id}
+        currentUserId={session.user.id}
+        clientId={contract.clientId}
+        freelancerId={contract.freelancerId}
+        contractStatus={contract.status}
+        pendingRequest={
+          pendingCancellationRequest
+            ? {
+                ...pendingCancellationRequest,
+                responseDeadline:
+                  pendingCancellationRequest.responseDeadline.toISOString(),
+              }
+            : null
+        }
+      />
     </section>
   );
 }

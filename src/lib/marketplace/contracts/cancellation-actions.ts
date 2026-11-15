@@ -2,12 +2,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+
+import {
+  and,
+  eq,
+} from "drizzle-orm";
+
 
 import { db } from "@/lib/db";
 import {
   contracts,
   cancellationRequests,
+  disputes,
 } from "@/lib/db/schema";
 import { requireVerifiedUser } from "@/lib/auth-helpers";
 
@@ -21,6 +27,18 @@ type CancellationActionResult =
       success: true;
       requestId: string;
       responseDeadline: Date;
+    }
+  | {
+      success: false;
+      message: string;
+    };
+
+
+    type RespondToCancellationResult =
+  | {
+      success: true;
+      outcome: "accepted" | "rejected";
+      disputeId?: string;
     }
   | {
       success: false;
@@ -177,6 +195,251 @@ export async function requestContractCancellation(
       success: false,
       message:
         "Unable to submit the cancellation request. Please try again.",
+    };
+  }
+}
+
+
+
+export async function respondToCancellationRequest(
+  input: unknown
+): Promise<RespondToCancellationResult> {
+  try {
+    const session = await requireVerifiedUser();
+    const userId = session.user.id;
+
+    if (!input || typeof input !== "object") {
+      return {
+        success: false,
+        message: "Invalid response.",
+      };
+    }
+
+    const data = input as {
+      requestId?: unknown;
+      decision?: unknown;
+      message?: unknown;
+    };
+
+    const requestId =
+      typeof data.requestId === "string"
+        ? data.requestId.trim()
+        : "";
+
+    const decision = data.decision;
+
+    const message =
+      typeof data.message === "string"
+        ? data.message.trim()
+        : "";
+
+    if (!UUID_REGEX.test(requestId)) {
+      return {
+        success: false,
+        message: "Invalid cancellation request ID.",
+      };
+    }
+
+    if (decision !== "accept" && decision !== "reject") {
+      return {
+        success: false,
+        message: "Invalid cancellation decision.",
+      };
+    }
+
+    if (
+      decision === "reject" &&
+      (message.length < 10 || message.length > 5000)
+    ) {
+      return {
+        success: false,
+        message: "Please provide a rejection reason between 10 and 5000 characters.",
+      };
+    }
+
+    const result = await db.transaction(async (tx) => {
+      // Find the contract ID associated with this request.
+      const [initialRequest] = await tx
+        .select({
+          contractId: cancellationRequests.contractId,
+        })
+        .from(cancellationRequests)
+        .where(eq(cancellationRequests.id, requestId))
+        .limit(1);
+
+      if (!initialRequest) {
+        return {
+          success: false as const,
+          message: "Cancellation request not found.",
+        };
+      }
+
+      // Always acquire locks in contract -> request order.
+      // This keeps lock ordering consistent with the request action.
+      const [contract] = await tx
+        .select({
+          id: contracts.id,
+          clientId: contracts.clientId,
+          freelancerId: contracts.freelancerId,
+          status: contracts.status,
+        })
+        .from(contracts)
+        .where(eq(contracts.id, initialRequest.contractId))
+        .for("update");
+
+      if (!contract) {
+        return {
+          success: false as const,
+          message: "Contract not found.",
+        };
+      }
+
+      const [request] = await tx
+        .select()
+        .from(cancellationRequests)
+        .where(
+          and(
+            eq(cancellationRequests.id, requestId),
+            eq(cancellationRequests.contractId, contract.id)
+          )
+        )
+        .for("update");
+
+      if (!request || request.status !== "pending") {
+        return {
+          success: false as const,
+          message: "This cancellation request is no longer pending.",
+        };
+      }
+
+      // The person who requested cancellation cannot respond to it.
+      if (request.requesterId === userId) {
+        return {
+          success: false as const,
+          message: "You cannot respond to your own cancellation request.",
+        };
+      }
+
+      const isParticipant =
+        contract.clientId === userId ||
+        contract.freelancerId === userId;
+
+      if (!isParticipant) {
+        return {
+          success: false as const,
+          message: "You are not authorized to respond to this request.",
+        };
+      }
+
+      if (contract.status !== "cancellation_pending") {
+        return {
+          success: false as const,
+          message: "The contract is no longer awaiting cancellation.",
+        };
+      }
+
+      const now = new Date();
+
+      if (now > request.responseDeadline) {
+        return {
+          success: false as const,
+          message: "The response deadline has passed. This request must be escalated for review.",
+        };
+      }
+
+      if (decision === "accept") {
+        await tx
+          .update(cancellationRequests)
+          .set({
+            status: "accepted",
+            responseMessage: message || null,
+            respondedAt: now,
+          })
+          .where(eq(cancellationRequests.id, request.id));
+
+        await tx
+          .update(contracts)
+          .set({
+            status: "cancelled",
+            updatedAt: now,
+          })
+          .where(eq(contracts.id, contract.id));
+
+        return {
+          success: true as const,
+          outcome: "accepted" as const,
+          contractId: contract.id,
+        };
+      }
+
+      // Rejection automatically opens a dispute.
+      const [dispute] = await tx
+        .insert(disputes)
+        .values({
+          contractId: contract.id,
+          cancellationRequestId: request.id,
+          openedById: request.requesterId,
+          origin: "cancellation",
+          reason: [
+            `Cancellation request: ${request.reason}`,
+            `Response from the other participant: ${message}`,
+          ].join("\n\n"),
+        })
+        .returning({
+          id: disputes.id,
+        });
+
+      await tx
+        .update(cancellationRequests)
+        .set({
+          status: "rejected",
+          responseMessage: message,
+          respondedAt: now,
+        })
+        .where(eq(cancellationRequests.id, request.id));
+
+      await tx
+        .update(contracts)
+        .set({
+          status: "disputed",
+          updatedAt: now,
+        })
+        .where(eq(contracts.id, contract.id));
+
+      return {
+        success: true as const,
+        outcome: "rejected" as const,
+        disputeId: dispute.id,
+        contractId: contract.id,
+      };
+    });
+
+    if (!result.success) {
+      return result;
+    }
+
+    revalidatePath("/dashboard/contracts");
+    revalidatePath(
+      `/dashboard/contracts/${result.contractId}`
+    );
+
+    if (result.outcome === "rejected") {
+      revalidatePath("/admin/disputes");
+    }
+
+    return {
+      success: true,
+      outcome: result.outcome,
+      ...(result.outcome === "rejected"
+        ? { disputeId: result.disputeId }
+        : {}),
+    };
+  } catch (error) {
+    console.error("Respond to cancellation request error:", error);
+
+    return {
+      success: false,
+      message: "Unable to process your response. Please try again.",
     };
   }
 }
