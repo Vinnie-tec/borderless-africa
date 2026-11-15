@@ -13,6 +13,7 @@ import {
 
 import { requireVerifiedUser } from "@/lib/auth-helpers";
 import { DisputeMessageForm } from "@/components/contracts/dispute-message-form";
+import { Suspense } from "react";
 
 type Props = {
   params: Promise<{
@@ -23,7 +24,15 @@ type Props = {
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function DisputeDetailsPage({ params }: Props) {
+  export default function DisputeDetailsPage({ params }: Props) {
+    return (
+      <Suspense fallback={<p>Loading disputes...</p>}>
+        <DisputesContent params={params} />
+      </Suspense>
+    );
+  }
+
+async function DisputesContent({ params }: Props) {
   await connection();
 
   const session = await requireVerifiedUser();

@@ -16,6 +16,7 @@ import {
 
 import { requireAdmin } from "@/lib/auth-helpers";
 import { DisputeReviewControls } from "@/components/admin/dispute-review-controls";
+import { Suspense } from "react";
 
 type Props = {
   params: Promise<{
@@ -26,7 +27,16 @@ type Props = {
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function AdminDisputeDetailsPage({ params }: Props) {
+  export default function AdminDisputeDetailsPage({ params }: Props) {
+  return (
+    <Suspense fallback={<p>Loading dispute details...</p>}>
+      <AdminDisputeDetailsContent params={params} />
+    </Suspense>
+  );
+}
+
+
+async function AdminDisputeDetailsContent({ params }: Props) {
   await connection();
   await requireAdmin();
 
@@ -210,3 +220,4 @@ export default async function AdminDisputeDetailsPage({ params }: Props) {
     </main>
   );
 }
+

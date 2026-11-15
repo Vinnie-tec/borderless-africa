@@ -6,8 +6,17 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { contracts, disputes } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { Suspense } from "react";
 
-export default async function AdminDisputesPage() {
+export default function AdminDisputesPage() {
+  return (
+    <Suspense fallback={<p>Loading disputes...</p>}>
+      <AdminDisputesContent />
+    </Suspense>
+  );
+}
+
+async function AdminDisputesContent() {
   await connection();
   await requireAdmin();
 
