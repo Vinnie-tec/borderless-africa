@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { requireFreelancer } from "@/lib/marketplace/authorization";
 import { db } from "@/lib/db";
 import { jobs, proposals } from "@/lib/db/schema";
+import { createNotification } from "@/lib/notifications/service";
 
 type CreateProposalInput = {
   jobId: unknown;
@@ -29,13 +30,13 @@ function isValidUUID(value: unknown): value is string {
   return (
     typeof value === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value
+      value,
     )
   );
 }
 
 export async function createProposal(
-  input: CreateProposalInput
+  input: CreateProposalInput,
 ): Promise<CreateProposalResult> {
   const session = await requireFreelancer();
 
@@ -149,6 +150,18 @@ export async function createProposal(
         .returning({
           id: proposals.id,
         });
+
+      await createNotification(tx, {
+        recipientId: job.clientId,
+        actorId: session.user.id,
+        type: "new_proposal",
+        title: "New proposal received",
+        message: "A freelancer has submitted a proposal for your job.",
+        href: `/dashboard/jobs/${job.id}/proposals`,
+        entityType: "job",
+        entityId: job.id,
+        dedupeKey: `new-proposal:${proposal.id}`,
+      });
 
       return {
         success: true as const,
