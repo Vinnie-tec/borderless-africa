@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireVerifiedUser } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { jobs, proposals, proposalOffers } from "@/lib/db/schema";
+import { createNotification } from "@/lib/notifications/service";
 
 type CreateCounterofferInput = {
   proposalId: unknown;
@@ -180,6 +181,30 @@ export async function createCounteroffer(
         .returning({
           id: proposalOffers.id,
         });
+
+      // Notify the other participant about the new counteroffer.
+      const recipientId =
+        userId === job.clientId ? proposal.freelancerId : job.clientId;
+
+      await createNotification(tx, {
+        recipientId,
+        actorId: userId,
+        type: "counteroffer_received",
+        title: "New counteroffer received",
+        message: "The other party has sent a new counteroffer.",
+        href:
+          userId === job.clientId
+            ? "/dashboard/proposals"
+            : `/dashboard/jobs/${job.id}/proposals`,
+        entityType: "proposal",
+        entityId: proposal.id,
+        metadata: {
+          offerId: offer.id,
+          proposedPrice: priceString,
+          deliveryDays,
+        },
+        dedupeKey: `counteroffer:${offer.id}`,
+      });
 
       await tx
         .update(proposals)
