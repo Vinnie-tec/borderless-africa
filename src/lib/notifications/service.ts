@@ -1,3 +1,4 @@
+
 import "server-only";
 
 import { db } from "@/lib/db";
@@ -5,6 +6,11 @@ import {
   notifications,
   notificationTypeEnum,
 } from "@/lib/db/schema";
+
+// Infer the transaction type from the existing Drizzle database.
+type NotificationTransaction = Parameters<
+  Parameters<typeof db.transaction>[0]
+>[0];
 
 type NotificationType =
   (typeof notificationTypeEnum.enumValues)[number];
@@ -23,9 +29,9 @@ type CreateNotificationInput = {
 };
 
 export async function createNotification(
+  tx: NotificationTransaction,
   input: CreateNotificationInput,
 ) {
-  // Notifications must link to an internal application route.
   if (
     !input.href.startsWith("/") ||
     input.href.startsWith("//") ||
@@ -38,7 +44,7 @@ export async function createNotification(
     throw new Error("Notification deduplication key is too long.");
   }
 
-  const [created] = await db
+  const [created] = await tx
     .insert(notifications)
     .values({
       recipientId: input.recipientId,
