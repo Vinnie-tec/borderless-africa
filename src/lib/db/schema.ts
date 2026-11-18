@@ -12,6 +12,7 @@ import {
   integer,
   numeric,
   uniqueIndex,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -335,9 +336,7 @@ export const contractDeliveries = pgTable(
     // Optional link to the submitted work.
     attachmentUrl: text("attachment_url"),
 
-    status: deliveryStatusEnum("status")
-      .default("submitted")
-      .notNull(),
+    status: deliveryStatusEnum("status").default("submitted").notNull(),
 
     reviewMessage: text("review_message"),
 
@@ -354,22 +353,18 @@ export const contractDeliveries = pgTable(
   (table) => [
     uniqueIndex("contract_deliveries_submission_unique").on(
       table.contractId,
-      table.submissionNumber
+      table.submissionNumber,
     ),
 
-    index("contract_deliveries_contract_id_idx").on(
-      table.contractId
-    ),
+    index("contract_deliveries_contract_id_idx").on(table.contractId),
 
-    index("contract_deliveries_submitted_by_idx").on(
-      table.submittedById
-    ),
-  ]
+    index("contract_deliveries_submitted_by_idx").on(table.submittedById),
+  ],
 );
 
 export const cancellationRequestStatusEnum = pgEnum(
   "cancellation_request_status",
-  ["pending", "accepted", "rejected", "escalated"]
+  ["pending", "accepted", "rejected", "escalated"],
 );
 
 export const disputeStatusEnum = pgEnum("dispute_status", [
@@ -401,7 +396,7 @@ export const cancellationRequests = pgTable(
 
     // Preserve the status so it can be restored if cancellation is rejected.
     previousContractStatus: contractStatusEnum(
-      "previous_contract_status"
+      "previous_contract_status",
     ).notNull(),
 
     status: cancellationRequestStatusEnum("status")
@@ -429,13 +424,13 @@ export const cancellationRequests = pgTable(
 
     index("cancellation_requests_status_deadline_idx").on(
       table.status,
-      table.responseDeadline
+      table.responseDeadline,
     ),
 
     uniqueIndex("cancellation_requests_one_pending_per_contract")
       .on(table.contractId)
       .where(sql`${table.status} = 'pending'`),
-  ]
+  ],
 );
 
 export const disputes = pgTable(
@@ -447,10 +442,12 @@ export const disputes = pgTable(
       .notNull()
       .references(() => contracts.id, { onDelete: "restrict" }),
 
-    cancellationRequestId: uuid("cancellation_request_id")
-      .references(() => cancellationRequests.id, {
+    cancellationRequestId: uuid("cancellation_request_id").references(
+      () => cancellationRequests.id,
+      {
         onDelete: "restrict",
-      }),
+      },
+    ),
 
     openedById: text("opened_by_id")
       .notNull()
@@ -460,9 +457,7 @@ export const disputes = pgTable(
 
     reason: text("reason").notNull(),
 
-    status: disputeStatusEnum("status")
-      .default("open")
-      .notNull(),
+    status: disputeStatusEnum("status").default("open").notNull(),
 
     // Admin's recorded decision and explanation.
     decision: varchar("decision", { length: 100 }),
@@ -493,15 +488,12 @@ export const disputes = pgTable(
   (table) => [
     index("disputes_contract_id_idx").on(table.contractId),
 
-    index("disputes_status_created_at_idx").on(
-      table.status,
-      table.createdAt
-    ),
+    index("disputes_status_created_at_idx").on(table.status, table.createdAt),
 
     uniqueIndex("disputes_one_active_per_contract")
       .on(table.contractId)
       .where(sql`${table.status} IN ('open', 'under_review')`),
-  ]
+  ],
 );
 
 export const disputeMessages = pgTable(
@@ -530,9 +522,9 @@ export const disputeMessages = pgTable(
   (table) => [
     index("dispute_messages_dispute_created_at_idx").on(
       table.disputeId,
-      table.createdAt
+      table.createdAt,
     ),
-  ]
+  ],
 );
 
 export const disputeEvents = pgTable(
@@ -561,10 +553,85 @@ export const disputeEvents = pgTable(
   (table) => [
     index("dispute_events_dispute_created_at_idx").on(
       table.disputeId,
-      table.createdAt
+      table.createdAt,
     ),
-  ]
+  ],
 );
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "new_proposal",
+  "counteroffer_received",
+  "proposal_accepted",
+  "proposal_rejected",
+  "contract_activated",
+  "delivery_submitted",
+  "revision_requested",
+  "delivery_approved",
+  "cancellation_requested",
+  "cancellation_responded",
+  "dispute_opened",
+  "dispute_message_received",
+  "dispute_review_started",
+  "dispute_resolved",
+]);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    // User who receives this notification.
+    recipientId: text("recipient_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    // User or system responsible for the event.
+    actorId: text("actor_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+
+    type: notificationTypeEnum("type").notNull(),
+
+    title: varchar("title", { length: 160 }).notNull(),
+    message: text("message").notNull(),
+
+    // Internal destination, e.g. /dashboard/proposals
+    href: varchar("href", { length: 2048 }).notNull(),
+
+    // Related marketplace record.
+    entityType: varchar("entity_type", { length: 40 }),
+    entityId: uuid("entity_id"),
+
+    // Additional structured information for the notification.
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+
+    // Optional key to prevent duplicate notifications.
+    dedupeKey: varchar("dedupe_key", { length: 200 }),
+
+    readAt: timestamp("read_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("notifications_recipient_created_idx").on(
+      table.recipientId,
+      table.createdAt,
+    ),
+
+    index("notifications_recipient_read_idx").on(
+      table.recipientId,
+      table.readAt,
+    ),
+
+    uniqueIndex("notifications_dedupe_key_unique").on(table.dedupeKey),
+  ],
+);
+
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 export const session = pgTable(
