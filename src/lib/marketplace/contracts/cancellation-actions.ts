@@ -1,21 +1,13 @@
-
 "use server";
 
 import { revalidatePath } from "next/cache";
 
-import {
-  and,
-  eq,
-} from "drizzle-orm";
-
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import {
-  contracts,
-  cancellationRequests,
-  disputes,
-} from "@/lib/db/schema";
+import { contracts, cancellationRequests, disputes } from "@/lib/db/schema";
 import { requireVerifiedUser } from "@/lib/auth-helpers";
+import { createNotification } from "@/lib/notifications/service";
 
 const THREE_DAYS_IN_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -33,8 +25,7 @@ type CancellationActionResult =
       message: string;
     };
 
-
-    type RespondToCancellationResult =
+type RespondToCancellationResult =
   | {
       success: true;
       outcome: "accepted" | "rejected";
@@ -46,7 +37,7 @@ type CancellationActionResult =
     };
 
 export async function requestContractCancellation(
-  input: unknown
+  input: unknown,
 ): Promise<CancellationActionResult> {
   try {
     // 1. Require an authenticated and verified account.
@@ -67,14 +58,9 @@ export async function requestContractCancellation(
     };
 
     const contractId =
-      typeof data.contractId === "string"
-        ? data.contractId.trim()
-        : "";
+      typeof data.contractId === "string" ? data.contractId.trim() : "";
 
-    const reason =
-      typeof data.reason === "string"
-        ? data.reason.trim()
-        : "";
+    const reason = typeof data.reason === "string" ? data.reason.trim() : "";
 
     if (!UUID_REGEX.test(contractId)) {
       return {
@@ -99,6 +85,7 @@ export async function requestContractCancellation(
           id: contracts.id,
           clientId: contracts.clientId,
           freelancerId: contracts.freelancerId,
+          title: contracts.title,
           status: contracts.status,
         })
         .from(contracts)
@@ -114,8 +101,7 @@ export async function requestContractCancellation(
 
       // 4. Only the contract's client or freelancer may request cancellation.
       const isParticipant =
-        contract.clientId === userId ||
-        contract.freelancerId === userId;
+        contract.clientId === userId || contract.freelancerId === userId;
 
       if (!isParticipant) {
         return {
@@ -134,7 +120,7 @@ export async function requestContractCancellation(
 
       if (
         !cancellableStatuses.includes(
-          contract.status as (typeof cancellableStatuses)[number]
+          contract.status as (typeof cancellableStatuses)[number],
         )
       ) {
         return {
@@ -145,9 +131,7 @@ export async function requestContractCancellation(
 
       // 6. Calculate the response deadline using server time.
       const now = new Date();
-      const responseDeadline = new Date(
-        now.getTime() + THREE_DAYS_IN_MS
-      );
+      const responseDeadline = new Date(now.getTime() + THREE_DAYS_IN_MS);
 
       // 7. Create the cancellation request.
       const [request] = await tx
@@ -172,6 +156,28 @@ export async function requestContractCancellation(
         })
         .where(eq(contracts.id, contract.id));
 
+      // Notify the other contract participant.
+      const recipientId =
+        userId === contract.clientId
+          ? contract.freelancerId
+          : contract.clientId;
+
+      await createNotification(tx, {
+        recipientId,
+        actorId: userId,
+        type: "cancellation_requested",
+        title: "Contract cancellation requested",
+        message: `The other participant has requested cancellation of "${contract.title}". Please respond within three days.`,
+        href: `/dashboard/contracts/${contract.id}`,
+        entityType: "contract",
+        entityId: contract.id,
+        metadata: {
+          cancellationRequestId: request.id,
+          responseDeadline: responseDeadline.toISOString(),
+        },
+        dedupeKey: `cancellation-requested:${request.id}`,
+      });
+
       return {
         success: true as const,
         requestId: request.id,
@@ -193,16 +199,13 @@ export async function requestContractCancellation(
 
     return {
       success: false,
-      message:
-        "Unable to submit the cancellation request. Please try again.",
+      message: "Unable to submit the cancellation request. Please try again.",
     };
   }
 }
 
-
-
 export async function respondToCancellationRequest(
-  input: unknown
+  input: unknown,
 ): Promise<RespondToCancellationResult> {
   try {
     const session = await requireVerifiedUser();
@@ -222,16 +225,11 @@ export async function respondToCancellationRequest(
     };
 
     const requestId =
-      typeof data.requestId === "string"
-        ? data.requestId.trim()
-        : "";
+      typeof data.requestId === "string" ? data.requestId.trim() : "";
 
     const decision = data.decision;
 
-    const message =
-      typeof data.message === "string"
-        ? data.message.trim()
-        : "";
+    const message = typeof data.message === "string" ? data.message.trim() : "";
 
     if (!UUID_REGEX.test(requestId)) {
       return {
@@ -253,7 +251,8 @@ export async function respondToCancellationRequest(
     ) {
       return {
         success: false,
-        message: "Please provide a rejection reason between 10 and 5000 characters.",
+        message:
+          "Please provide a rejection reason between 10 and 5000 characters.",
       };
     }
 
@@ -281,6 +280,7 @@ export async function respondToCancellationRequest(
           id: contracts.id,
           clientId: contracts.clientId,
           freelancerId: contracts.freelancerId,
+          title: contracts.title,
           status: contracts.status,
         })
         .from(contracts)
@@ -300,8 +300,8 @@ export async function respondToCancellationRequest(
         .where(
           and(
             eq(cancellationRequests.id, requestId),
-            eq(cancellationRequests.contractId, contract.id)
-          )
+            eq(cancellationRequests.contractId, contract.id),
+          ),
         )
         .for("update");
 
@@ -321,8 +321,7 @@ export async function respondToCancellationRequest(
       }
 
       const isParticipant =
-        contract.clientId === userId ||
-        contract.freelancerId === userId;
+        contract.clientId === userId || contract.freelancerId === userId;
 
       if (!isParticipant) {
         return {
@@ -343,7 +342,8 @@ export async function respondToCancellationRequest(
       if (now > request.responseDeadline) {
         return {
           success: false as const,
-          message: "The response deadline has passed. This request must be escalated for review.",
+          message:
+            "The response deadline has passed. This request must be escalated for review.",
         };
       }
 
@@ -364,7 +364,21 @@ export async function respondToCancellationRequest(
             updatedAt: now,
           })
           .where(eq(contracts.id, contract.id));
-
+        await createNotification(tx, {
+          recipientId: request.requesterId,
+          actorId: userId,
+          type: "cancellation_responded",
+          title: "Cancellation request accepted",
+          message: `Your cancellation request for "${contract.title}" was accepted.`,
+          href: `/dashboard/contracts/${contract.id}`,
+          entityType: "contract",
+          entityId: contract.id,
+          metadata: {
+            cancellationRequestId: request.id,
+            outcome: "accepted",
+          },
+          dedupeKey: `cancellation-responded:${request.id}`,
+        });
         return {
           success: true as const,
           outcome: "accepted" as const,
@@ -406,6 +420,39 @@ export async function respondToCancellationRequest(
         })
         .where(eq(contracts.id, contract.id));
 
+      // Notify the requester that their cancellation request was rejected.
+      await createNotification(tx, {
+        recipientId: request.requesterId,
+        actorId: userId,
+        type: "cancellation_responded",
+        title: "Cancellation request rejected",
+        message: `Your cancellation request for "${contract.title}" was rejected. A dispute has been opened for review.`,
+        href: `/dashboard/disputes/${dispute.id}`,
+        entityType: "dispute",
+        entityId: dispute.id,
+        metadata: {
+          cancellationRequestId: request.id,
+          outcome: "rejected",
+        },
+        dedupeKey: `cancellation-responded:${request.id}`,
+      });
+
+      // Notify the requester that the dispute is now open.
+      await createNotification(tx, {
+        recipientId: request.requesterId,
+        actorId: userId,
+        type: "dispute_opened",
+        title: "A dispute has been opened",
+        message: `A dispute concerning "${contract.title}" is now open. You can provide your explanation and evidence.`,
+        href: `/dashboard/disputes/${dispute.id}`,
+        entityType: "dispute",
+        entityId: dispute.id,
+        metadata: {
+          cancellationRequestId: request.id,
+        },
+        dedupeKey: `dispute-opened:${dispute.id}:${request.requesterId}`,
+      });
+
       return {
         success: true as const,
         outcome: "rejected" as const,
@@ -419,9 +466,7 @@ export async function respondToCancellationRequest(
     }
 
     revalidatePath("/dashboard/contracts");
-    revalidatePath(
-      `/dashboard/contracts/${result.contractId}`
-    );
+    revalidatePath(`/dashboard/contracts/${result.contractId}`);
 
     if (result.outcome === "rejected") {
       revalidatePath("/admin/disputes");
@@ -430,9 +475,7 @@ export async function respondToCancellationRequest(
     return {
       success: true,
       outcome: result.outcome,
-      ...(result.outcome === "rejected"
-        ? { disputeId: result.disputeId }
-        : {}),
+      ...(result.outcome === "rejected" ? { disputeId: result.disputeId } : {}),
     };
   } catch (error) {
     console.error("Respond to cancellation request error:", error);
