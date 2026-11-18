@@ -1,4 +1,3 @@
-
 "use server";
 
 import { desc, eq } from "drizzle-orm";
@@ -7,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { requireFreelancer } from "@/lib/marketplace/authorization";
 import { db } from "@/lib/db";
 import { contractDeliveries, contracts } from "@/lib/db/schema";
+
+import { createNotification } from "@/lib/notifications/service";
 
 type SubmitDeliveryResult =
   | {
@@ -20,7 +21,7 @@ type SubmitDeliveryResult =
     };
 
 export async function submitDelivery(
-  input: unknown
+  input: unknown,
 ): Promise<SubmitDeliveryResult> {
   const session = await requireFreelancer();
 
@@ -35,21 +36,15 @@ export async function submitDelivery(
   const data = input as Record<string, unknown>;
 
   const { contractId } = data;
-  const message =
-    typeof data.message === "string" ? data.message.trim() : "";
+  const message = typeof data.message === "string" ? data.message.trim() : "";
 
   const attachmentUrl =
-    typeof data.attachmentUrl === "string"
-      ? data.attachmentUrl.trim()
-      : "";
+    typeof data.attachmentUrl === "string" ? data.attachmentUrl.trim() : "";
 
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (
-    typeof contractId !== "string" ||
-    !uuidRegex.test(contractId)
-  ) {
+  if (typeof contractId !== "string" || !uuidRegex.test(contractId)) {
     return {
       success: false,
       message: "Invalid contract.",
@@ -96,6 +91,8 @@ export async function submitDelivery(
         .select({
           id: contracts.id,
           freelancerId: contracts.freelancerId,
+          clientId: contracts.clientId,
+          title: contracts.title,
           status: contracts.status,
         })
         .from(contracts)
@@ -133,8 +130,7 @@ export async function submitDelivery(
         .orderBy(desc(contractDeliveries.submissionNumber))
         .limit(1);
 
-      const submissionNumber =
-        (latestDelivery?.submissionNumber ?? 0) + 1;
+      const submissionNumber = (latestDelivery?.submissionNumber ?? 0) + 1;
 
       // Preserve each submission as a separate record.
       const [delivery] = await tx
@@ -157,6 +153,23 @@ export async function submitDelivery(
           updatedAt: new Date(),
         })
         .where(eq(contracts.id, contract.id));
+
+      // Notify the client that the freelancer has submitted their work.
+      await createNotification(tx, {
+        recipientId: contract.clientId,
+        actorId: session.user.id,
+        type: "delivery_submitted",
+        title: "Work submitted for review",
+        message: `The freelancer has submitted delivery ${submissionNumber} for "${contract.title}".`,
+        href: `/dashboard/contracts/${contract.id}`,
+        entityType: "contract",
+        entityId: contract.id,
+        metadata: {
+          deliveryId: delivery.id,
+          submissionNumber,
+        },
+        dedupeKey: `delivery-submitted:${delivery.id}`,
+      });
 
       return {
         success: true as const,
