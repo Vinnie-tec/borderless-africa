@@ -7,6 +7,8 @@ import { requireClient } from "@/lib/marketplace/authorization";
 import { db } from "@/lib/db";
 import { contracts, jobs, proposals, proposalOffers } from "@/lib/db/schema";
 
+import { createNotification } from "@/lib/notifications/service";
+
 type AcceptProposalResult =
   | {
       success: true;
@@ -156,7 +158,8 @@ export async function acceptProposal(
         .where(eq(proposals.id, proposal.id));
 
       // Reject other proposals that are still active.
-      await tx
+      // Reject competing active proposals and capture their owners.
+      const rejectedProposals = await tx
         .update(proposals)
         .set({
           status: "rejected",
@@ -168,7 +171,29 @@ export async function acceptProposal(
             ne(proposals.id, proposal.id),
             inArray(proposals.status, ["pending", "negotiating"]),
           ),
-        );
+        )
+        .returning({
+          id: proposals.id,
+          freelancerId: proposals.freelancerId,
+        });
+
+      // Notify each affected freelancer.
+      for (const rejectedProposal of rejectedProposals) {
+        await createNotification(tx, {
+          recipientId: rejectedProposal.freelancerId,
+          actorId: session.user.id,
+          type: "proposal_rejected",
+          title: "Proposal not selected",
+          message: `The client has selected another freelancer for "${job.title}".`,
+          href: "/dashboard/proposals",
+          entityType: "proposal",
+          entityId: rejectedProposal.id,
+          metadata: {
+            jobId: job.id,
+          },
+          dedupeKey: `proposal-rejected:${rejectedProposal.id}`,
+        });
+      }
 
       // Close the job to prevent further applications.
       await tx
@@ -196,6 +221,23 @@ export async function acceptProposal(
           status: "awaiting_payment",
         })
         .returning({ id: contracts.id });
+
+      // Notify the freelancer that their proposal was accepted.
+      await createNotification(tx, {
+        recipientId: proposal.freelancerId,
+        actorId: session.user.id,
+        type: "proposal_accepted",
+        title: "Your proposal was accepted",
+        message: `Your proposal for "${job.title}" was accepted. A contract has been created.`,
+        href: `/dashboard/contracts/${contract.id}`,
+        entityType: "contract",
+        entityId: contract.id,
+        metadata: {
+          proposalId: proposal.id,
+          jobId: job.id,
+        },
+        dedupeKey: `proposal-accepted:${proposal.id}`,
+      });
 
       return {
         success: true as const,
