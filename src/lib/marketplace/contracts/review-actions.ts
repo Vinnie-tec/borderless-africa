@@ -1,4 +1,3 @@
-
 "use server";
 
 import { desc, eq } from "drizzle-orm";
@@ -7,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { requireClient } from "@/lib/marketplace/authorization";
 import { db } from "@/lib/db";
 import { contracts, contractDeliveries } from "@/lib/db/schema";
+
+import { createNotification } from "@/lib/notifications/service";
 
 // type ReviewDeliveryInput = {
 //   contractId: string;
@@ -25,7 +26,7 @@ type ReviewDeliveryResult =
     };
 
 export async function reviewDelivery(
-  input: unknown
+  input: unknown,
 ): Promise<ReviewDeliveryResult> {
   const session = await requireClient();
 
@@ -39,16 +40,12 @@ export async function reviewDelivery(
   const data = input as Record<string, unknown>;
 
   const { contractId, decision } = data;
-  const message =
-    typeof data.message === "string" ? data.message.trim() : "";
+  const message = typeof data.message === "string" ? data.message.trim() : "";
 
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (
-    typeof contractId !== "string" ||
-    !uuidRegex.test(contractId)
-  ) {
+  if (typeof contractId !== "string" || !uuidRegex.test(contractId)) {
     return {
       success: false,
       message: "Invalid contract.",
@@ -87,6 +84,8 @@ export async function reviewDelivery(
         .select({
           id: contracts.id,
           clientId: contracts.clientId,
+          freelancerId: contracts.freelancerId,
+          title: contracts.title,
           status: contracts.status,
           revisionAllowance: contracts.revisionAllowance,
           revisionsUsed: contracts.revisionsUsed,
@@ -149,6 +148,22 @@ export async function reviewDelivery(
           })
           .where(eq(contracts.id, contract.id));
 
+        await createNotification(tx, {
+          recipientId: contract.freelancerId,
+          actorId: session.user.id,
+          type: "delivery_approved",
+          title: "Delivery approved",
+          message: `Your delivery for "${contract.title}" has been approved. The contract is now completed.`,
+          href: `/dashboard/contracts/${contract.id}`,
+          entityType: "contract",
+          entityId: contract.id,
+          metadata: {
+            deliveryId: delivery.id,
+            submissionNumber: delivery.submissionNumber,
+          },
+          dedupeKey: `delivery-approved:${delivery.id}`,
+        });
+
         return {
           success: true as const,
           message: "Delivery approved. The contract is now completed.",
@@ -180,6 +195,22 @@ export async function reviewDelivery(
           updatedAt: now,
         })
         .where(eq(contracts.id, contract.id));
+
+      await createNotification(tx, {
+        recipientId: contract.freelancerId,
+        actorId: session.user.id,
+        type: "revision_requested",
+        title: "Revision requested",
+        message: `The client requested changes to delivery ${delivery.submissionNumber} for "${contract.title}".`,
+        href: `/dashboard/contracts/${contract.id}`,
+        entityType: "contract",
+        entityId: contract.id,
+        metadata: {
+          deliveryId: delivery.id,
+          submissionNumber: delivery.submissionNumber,
+        },
+        dedupeKey: `revision-requested:${delivery.id}`,
+      });
 
       return {
         success: true as const,
