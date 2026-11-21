@@ -12,6 +12,8 @@ import {
 } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth-helpers";
 
+import { createNotification } from "@/lib/notifications/service";
+
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -39,6 +41,7 @@ export async function startDisputeReview(
       const [dispute] = await tx
         .select({
           id: disputes.id,
+          contractId: disputes.contractId,
           status: disputes.status,
         })
         .from(disputes)
@@ -59,6 +62,24 @@ export async function startDisputeReview(
         };
       }
 
+      const [contract] = await tx
+        .select({
+          id: contracts.id,
+          clientId: contracts.clientId,
+          freelancerId: contracts.freelancerId,
+          title: contracts.title,
+        })
+        .from(contracts)
+        .where(eq(contracts.id, dispute.contractId))
+        .limit(1);
+
+      if (!contract) {
+        return {
+          success: false as const,
+          message: "Associated contract not found.",
+        };
+      }
+
       const now = new Date();
 
       await tx
@@ -75,6 +96,22 @@ export async function startDisputeReview(
         action: "review_started",
         details: "An administrator moved the dispute into review.",
       });
+
+      const participants = [contract.clientId, contract.freelancerId];
+
+      for (const recipientId of participants) {
+        await createNotification(tx, {
+          recipientId,
+          actorId: session.user.id,
+          type: "dispute_review_started",
+          title: "Dispute review started",
+          message: `An administrator has started reviewing the dispute concerning "${contract.title}". You can follow its progress here.`,
+          href: `/dashboard/disputes/${dispute.id}`,
+          entityType: "dispute",
+          entityId: dispute.id,
+          dedupeKey: `dispute-review-started:${dispute.id}:${recipientId}`,
+        });
+      }
 
       return { success: true as const };
     });
@@ -163,6 +200,24 @@ export async function resolveDispute(
         };
       }
 
+      const [contract] = await tx
+  .select({
+    id: contracts.id,
+    clientId: contracts.clientId,
+    freelancerId: contracts.freelancerId,
+    title: contracts.title,
+  })
+  .from(contracts)
+  .where(eq(contracts.id, dispute.contractId))
+  .limit(1);
+
+if (!contract) {
+  return {
+    success: false as const,
+    message: "Associated contract not found.",
+  };
+}
+
       const now = new Date();
 
       await tx
@@ -183,6 +238,28 @@ export async function resolveDispute(
         action: "dispute_resolved",
         details: `Decision: ${decision}. Resolution: ${resolution}`,
       });
+
+      const participants = [
+  contract.clientId,
+  contract.freelancerId,
+];
+
+for (const recipientId of participants) {
+  await createNotification(tx, {
+    recipientId,
+    actorId: session.user.id,
+    type: "dispute_resolved",
+    title: "Dispute resolved",
+    message: `An administrator has resolved the dispute concerning "${contract.title}". Decision: ${decision}. Resolution: ${resolution}`,
+    href: `/dashboard/disputes/${dispute.id}`,
+    entityType: "dispute",
+    entityId: dispute.id,
+    metadata: {
+      decision,
+    },
+    dedupeKey: `dispute-resolved:${dispute.id}:${recipientId}`,
+  });
+}
 
       return {
         success: true as const,
