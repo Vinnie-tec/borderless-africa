@@ -21,6 +21,7 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -30,6 +31,11 @@ export const user = pgTable("user", {
   // Every account receives a role.
   // Public registration cannot choose this value.
   role: text("role").default("user").notNull(),
+
+  // Better Auth Admin plugin: account suspension.
+  banned: boolean("banned").default(false).notNull(),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
 });
 
 export const adminAuditLogs = pgTable(
@@ -63,14 +69,10 @@ export const adminAuditLogs = pgTable(
   },
   (table) => [
     index("admin_audit_logs_admin_id_idx").on(table.adminId),
-    index("admin_audit_logs_entity_idx").on(
-      table.entityType,
-      table.entityId,
-    ),
+    index("admin_audit_logs_entity_idx").on(table.entityType, table.entityId),
     index("admin_audit_logs_created_at_idx").on(table.createdAt),
   ],
 );
-
 
 // A user can operate in one or both marketplace modes.
 export const marketplaceCapabilityEnum = pgEnum("marketplace_capability", [
@@ -685,11 +687,14 @@ export const session = pgTable(
     updatedAt: timestamp("updated_at")
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
+
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    // Better Auth Admin plugin: session impersonation tracking.
+    impersonatedBy: text("impersonated_by"),
   },
   (table) => [index("session_userId_idx").on(table.userId)],
 );
