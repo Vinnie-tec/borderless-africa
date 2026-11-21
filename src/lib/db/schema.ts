@@ -32,6 +32,46 @@ export const user = pgTable("user", {
   role: text("role").default("user").notNull(),
 });
 
+export const adminAuditLogs = pgTable(
+  "admin_audit_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    // Administrator who performed the action.
+    adminId: text("admin_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    // Examples: user.role_changed, user.capability_added.
+    action: varchar("action", { length: 100 }).notNull(),
+
+    // The type and ID of the affected record.
+    entityType: varchar("entity_type", { length: 50 }).notNull(),
+    entityId: text("entity_id").notNull(),
+
+    // Minimal before/after information about the action.
+    details: jsonb("details")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("admin_audit_logs_admin_id_idx").on(table.adminId),
+    index("admin_audit_logs_entity_idx").on(
+      table.entityType,
+      table.entityId,
+    ),
+    index("admin_audit_logs_created_at_idx").on(table.createdAt),
+  ],
+);
+
+
 // A user can operate in one or both marketplace modes.
 export const marketplaceCapabilityEnum = pgEnum("marketplace_capability", [
   "client",
