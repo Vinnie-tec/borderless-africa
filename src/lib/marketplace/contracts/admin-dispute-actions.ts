@@ -201,22 +201,22 @@ export async function resolveDispute(
       }
 
       const [contract] = await tx
-  .select({
-    id: contracts.id,
-    clientId: contracts.clientId,
-    freelancerId: contracts.freelancerId,
-    title: contracts.title,
-  })
-  .from(contracts)
-  .where(eq(contracts.id, dispute.contractId))
-  .limit(1);
+        .select({
+          id: contracts.id,
+          clientId: contracts.clientId,
+          freelancerId: contracts.freelancerId,
+          title: contracts.title,
+        })
+        .from(contracts)
+        .where(eq(contracts.id, dispute.contractId))
+        .limit(1);
 
-if (!contract) {
-  return {
-    success: false as const,
-    message: "Associated contract not found.",
-  };
-}
+      if (!contract) {
+        return {
+          success: false as const,
+          message: "Associated contract not found.",
+        };
+      }
 
       const now = new Date();
 
@@ -239,27 +239,24 @@ if (!contract) {
         details: `Decision: ${decision}. Resolution: ${resolution}`,
       });
 
-      const participants = [
-  contract.clientId,
-  contract.freelancerId,
-];
+      const participants = [contract.clientId, contract.freelancerId];
 
-for (const recipientId of participants) {
-  await createNotification(tx, {
-    recipientId,
-    actorId: session.user.id,
-    type: "dispute_resolved",
-    title: "Dispute resolved",
-    message: `An administrator has resolved the dispute concerning "${contract.title}". Decision: ${decision}. Resolution: ${resolution}`,
-    href: `/dashboard/disputes/${dispute.id}`,
-    entityType: "dispute",
-    entityId: dispute.id,
-    metadata: {
-      decision,
-    },
-    dedupeKey: `dispute-resolved:${dispute.id}:${recipientId}`,
-  });
-}
+      for (const recipientId of participants) {
+        await createNotification(tx, {
+          recipientId,
+          actorId: session.user.id,
+          type: "dispute_resolved",
+          title: "Dispute resolved",
+          message: `An administrator has resolved the dispute concerning "${contract.title}". Decision: ${decision}. Resolution: ${resolution}`,
+          href: `/dashboard/disputes/${dispute.id}`,
+          entityType: "dispute",
+          entityId: dispute.id,
+          metadata: {
+            decision,
+          },
+          dedupeKey: `dispute-resolved:${dispute.id}:${recipientId}`,
+        });
+      }
 
       return {
         success: true as const,
@@ -363,6 +360,8 @@ export async function applyDisputeOutcome(
       const [contract] = await tx
         .select({
           id: contracts.id,
+          clientId: contracts.clientId,
+          freelancerId: contracts.freelancerId,
           status: contracts.status,
         })
         .from(contracts)
@@ -449,6 +448,35 @@ export async function applyDisputeOutcome(
             ? "Administrator applied the dispute outcome: contract cancelled."
             : `Administrator applied the dispute outcome: contract restored to ${nextContractStatus}.`,
       });
+
+      const participants = [contract.clientId, contract.freelancerId];
+
+      const outcomeMessage =
+        outcome === "cancel_contract"
+          ? `An administrator has applied the dispute outcome. The contract "${contract.id}" has been cancelled.`
+          : `An administrator has applied the dispute outcome. The contract "${contract.id}" has been restored to ${nextContractStatus.replaceAll("_", " ")}.`;
+
+      for (const recipientId of participants) {
+        await createNotification(tx, {
+          recipientId,
+          actorId: session.user.id,
+          type: "dispute_outcome_applied",
+          title:
+            outcome === "cancel_contract"
+              ? "Contract cancelled following dispute"
+              : "Contract restored following dispute",
+          message: outcomeMessage,
+          href: `/dashboard/contracts/${contract.id}`,
+          entityType: "contract",
+          entityId: contract.id,
+          metadata: {
+            disputeId: dispute.id,
+            outcome,
+            contractStatus: nextContractStatus,
+          },
+          dedupeKey: `dispute-outcome-applied:${dispute.id}:${recipientId}`,
+        });
+      }
 
       return {
         success: true as const,
