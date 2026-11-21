@@ -1,7 +1,9 @@
-
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { asc, eq, ilike, or, and } from "drizzle-orm";
+
+import { requireAdmin } from "@/lib/auth-helpers";
+import { UserRoleControl } from "@/components/admin/user-role-control";
 
 import { db } from "@/lib/db";
 import { user, userCapabilities } from "@/lib/db/schema";
@@ -25,15 +27,13 @@ export default function AdminUsersPage({ searchParams }: Props) {
 async function AdminUsersContent({ searchParams }: Props) {
   await connection();
 
+  const session = await requireAdmin();
+
   const params = await searchParams;
 
   const search = params.q?.trim().slice(0, 100) ?? "";
-  const role = ["user", "admin"].includes(params.role ?? "")
-    ? params.role
-    : "";
-  const capability = ["client", "freelancer"].includes(
-    params.capability ?? "",
-  )
+  const role = ["user", "admin"].includes(params.role ?? "") ? params.role : "";
+  const capability = ["client", "freelancer"].includes(params.capability ?? "")
     ? params.capability
     : "";
 
@@ -41,10 +41,7 @@ async function AdminUsersContent({ searchParams }: Props) {
 
   if (search) {
     conditions.push(
-      or(
-        ilike(user.name, `%${search}%`),
-        ilike(user.email, `%${search}%`),
-      )!,
+      or(ilike(user.name, `%${search}%`), ilike(user.email, `%${search}%`))!,
     );
   }
 
@@ -54,10 +51,7 @@ async function AdminUsersContent({ searchParams }: Props) {
 
   if (capability) {
     conditions.push(
-      eq(
-        userCapabilities.capability,
-        capability as "client" | "freelancer",
-      ),
+      eq(userCapabilities.capability, capability as "client" | "freelancer"),
     );
   }
 
@@ -72,10 +66,7 @@ async function AdminUsersContent({ searchParams }: Props) {
       capability: userCapabilities.capability,
     })
     .from(user)
-    .leftJoin(
-      userCapabilities,
-      eq(user.id, userCapabilities.userId),
-    )
+    .leftJoin(userCapabilities, eq(user.id, userCapabilities.userId))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(asc(user.name));
 
@@ -97,10 +88,7 @@ async function AdminUsersContent({ searchParams }: Props) {
     const existing = groupedUsers.get(row.id);
 
     if (existing) {
-      if (
-        row.capability &&
-        !existing.capabilities.includes(row.capability)
-      ) {
+      if (row.capability && !existing.capabilities.includes(row.capability)) {
         existing.capabilities.push(row.capability);
       }
     } else {
@@ -151,11 +139,7 @@ async function AdminUsersContent({ searchParams }: Props) {
 
         <div>
           <label htmlFor="capability">Marketplace capability</label>
-          <select
-            id="capability"
-            name="capability"
-            defaultValue={capability}
-          >
+          <select id="capability" name="capability" defaultValue={capability}>
             <option value="">All capabilities</option>
             <option value="client">Client</option>
             <option value="freelancer">Freelancer</option>
@@ -186,7 +170,13 @@ async function AdminUsersContent({ searchParams }: Props) {
               <tr key={account.id}>
                 <td>{account.name}</td>
                 <td>{account.email}</td>
-                <td>{account.role}</td>
+                <td>
+                  <UserRoleControl
+                    userId={account.id}
+                    currentRole={account.role}
+                    isCurrentUser={account.id === session.user.id}
+                  />
+                </td>
                 <td>
                   {account.capabilities.length > 0
                     ? account.capabilities.join(", ")
