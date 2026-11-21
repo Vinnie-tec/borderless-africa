@@ -1,6 +1,6 @@
-
 import { and, eq, lt } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { createNotification } from "@/lib/notifications/service";
 
 import { db } from "@/lib/db";
 import {
@@ -59,6 +59,9 @@ export async function escalateExpiredCancellations() {
       const [contract] = await tx
         .select({
           id: contracts.id,
+          clientId: contracts.clientId,
+          freelancerId: contracts.freelancerId,
+          title: contracts.title,
           status: contracts.status,
         })
         .from(contracts)
@@ -125,6 +128,30 @@ export async function escalateExpiredCancellations() {
           "The cancellation request passed its response deadline " +
           "without a response and was automatically escalated.",
       });
+
+      // Notify both contract participants that the dispute has been opened.
+      const participants = [contract.clientId, contract.freelancerId];
+
+      for (const recipientId of participants) {
+        await createNotification(tx, {
+          recipientId,
+          actorId: SYSTEM_ACTOR_ID,
+          type: "dispute_opened",
+          title: "Cancellation dispute opened",
+          message:
+            `The cancellation request for "${contract.title}" was not answered ` +
+            "within three days. A dispute has automatically been opened for review.",
+          href: `/dashboard/disputes/${dispute.id}`,
+          entityType: "dispute",
+          entityId: dispute.id,
+          metadata: {
+            cancellationRequestId: request.id,
+            contractId: contract.id,
+            origin: "automatic_cancellation_escalation",
+          },
+          dedupeKey: `dispute-opened:${dispute.id}:${recipientId}`,
+        });
+      }
 
       return true;
     });

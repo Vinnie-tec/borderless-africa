@@ -1,7 +1,8 @@
-
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { createNotification } from "@/lib/notifications/service";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -27,7 +28,7 @@ type DisputeMessageResult =
     };
 
 export async function addDisputeMessage(
-  input: unknown
+  input: unknown,
 ): Promise<DisputeMessageResult> {
   try {
     const session = await requireVerifiedUser();
@@ -47,19 +48,12 @@ export async function addDisputeMessage(
     };
 
     const disputeId =
-      typeof data.disputeId === "string"
-        ? data.disputeId.trim()
-        : "";
+      typeof data.disputeId === "string" ? data.disputeId.trim() : "";
 
-    const message =
-      typeof data.message === "string"
-        ? data.message.trim()
-        : "";
+    const message = typeof data.message === "string" ? data.message.trim() : "";
 
     const attachmentUrl =
-      typeof data.attachmentUrl === "string"
-        ? data.attachmentUrl.trim()
-        : "";
+      typeof data.attachmentUrl === "string" ? data.attachmentUrl.trim() : "";
 
     if (!UUID_REGEX.test(disputeId)) {
       return {
@@ -80,10 +74,7 @@ export async function addDisputeMessage(
       try {
         const url = new URL(attachmentUrl);
 
-        if (
-          url.protocol !== "https:" ||
-          attachmentUrl.length > 2048
-        ) {
+        if (url.protocol !== "https:" || attachmentUrl.length > 2048) {
           throw new Error("Invalid URL");
         }
       } catch {
@@ -114,10 +105,7 @@ export async function addDisputeMessage(
         };
       }
 
-      if (
-        dispute.status !== "open" &&
-        dispute.status !== "under_review"
-      ) {
+      if (dispute.status !== "open" && dispute.status !== "under_review") {
         return {
           success: false as const,
           message: "This dispute is no longer accepting messages.",
@@ -130,6 +118,7 @@ export async function addDisputeMessage(
           id: contracts.id,
           clientId: contracts.clientId,
           freelancerId: contracts.freelancerId,
+          title: contracts.title,
         })
         .from(contracts)
         .where(eq(contracts.id, dispute.contractId))
@@ -143,8 +132,7 @@ export async function addDisputeMessage(
       }
 
       const isParticipant =
-        contract.clientId === userId ||
-        contract.freelancerId === userId;
+        contract.clientId === userId || contract.freelancerId === userId;
 
       if (!isParticipant) {
         return {
@@ -175,6 +163,27 @@ export async function addDisputeMessage(
           : "Participant submitted a dispute message.",
       });
 
+      const recipientId =
+        userId === contract.clientId
+          ? contract.freelancerId
+          : contract.clientId;
+
+      await createNotification(tx, {
+        recipientId,
+        actorId: userId,
+        type: "dispute_message_received",
+        title: "New dispute message",
+        message: `The other participant has sent a message concerning "${contract.title}".`,
+        href: `/dashboard/disputes/${dispute.id}`,
+        entityType: "dispute",
+        entityId: dispute.id,
+        metadata: {
+          disputeMessageId: newMessage.id,
+          hasAttachment: Boolean(attachmentUrl),
+        },
+        dedupeKey: `dispute-message:${newMessage.id}`,
+      });
+
       return {
         success: true as const,
         messageId: newMessage.id,
@@ -187,9 +196,7 @@ export async function addDisputeMessage(
     }
 
     revalidatePath(`/dashboard/disputes/${disputeId}`);
-    revalidatePath(
-      `/dashboard/contracts/${result.contractId}`
-    );
+    revalidatePath(`/dashboard/contracts/${result.contractId}`);
     revalidatePath("/admin/disputes");
 
     return {
