@@ -4,6 +4,7 @@ import { asc, eq, ilike, or, and } from "drizzle-orm";
 
 import { requireAdmin } from "@/lib/auth-helpers";
 import { UserRoleControl } from "@/components/admin/user-role-control";
+import { UserCapabilityControl } from "@/components/admin/user-capability-control";
 
 import { db } from "@/lib/db";
 import { user, userCapabilities } from "@/lib/db/schema";
@@ -178,9 +179,10 @@ async function AdminUsersContent({ searchParams }: Props) {
                   />
                 </td>
                 <td>
-                  {account.capabilities.length > 0
-                    ? account.capabilities.join(", ")
-                    : "None"}
+                  <UserCapabilityControl
+                    userId={account.id}
+                    currentCapabilities={account.capabilities}
+                  />
                 </td>
                 <td>{account.emailVerified ? "Yes" : "No"}</td>
                 <td>{account.createdAt.toLocaleDateString()}</td>
