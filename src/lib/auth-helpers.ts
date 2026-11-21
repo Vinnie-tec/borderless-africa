@@ -1,16 +1,48 @@
+
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { user } from "@/lib/db/schema";
 
 // Retrieves the currently authenticated user and session.
+// Also checks the database for an active account suspension.
 export async function getCurrentSession() {
-  return auth.api.getSession({
+  const session = await auth.api.getSession({
     headers: await headers(),
   });
+
+  if (!session) {
+    return null;
+  }
+
+  const [account] = await db
+    .select({
+      banned: user.banned,
+      banExpires: user.banExpires,
+    })
+    .from(user)
+    .where(eq(user.id, session.user.id))
+    .limit(1);
+
+  if (!account) {
+    return null;
+  }
+
+  const isCurrentlyBanned =
+    account.banned &&
+    (!account.banExpires || account.banExpires > new Date());
+
+  if (isCurrentlyBanned) {
+    return null;
+  }
+
+  return session;
 }
 
-// Prevents unauthenticated users from accessing protected pages.
+// Prevents unauthenticated or suspended users from accessing protected pages.
 export async function requireAuth() {
   const session = await getCurrentSession();
 
