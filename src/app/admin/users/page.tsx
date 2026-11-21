@@ -6,6 +6,8 @@ import { requireAdmin } from "@/lib/auth-helpers";
 import { UserRoleControl } from "@/components/admin/user-role-control";
 import { UserCapabilityControl } from "@/components/admin/user-capability-control";
 
+import { UserSuspensionControl } from "@/components/admin/user-suspension-control";
+
 import { db } from "@/lib/db";
 import { user, userCapabilities } from "@/lib/db/schema";
 
@@ -65,6 +67,8 @@ async function AdminUsersContent({ searchParams }: Props) {
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
       capability: userCapabilities.capability,
+      banned: user.banned,
+      banReason: user.banReason,
     })
     .from(user)
     .leftJoin(userCapabilities, eq(user.id, userCapabilities.userId))
@@ -78,6 +82,8 @@ async function AdminUsersContent({ searchParams }: Props) {
       id: string;
       name: string;
       email: string;
+      banned: boolean;
+      banReason: string | null;
       role: string;
       emailVerified: boolean;
       createdAt: Date;
@@ -101,6 +107,8 @@ async function AdminUsersContent({ searchParams }: Props) {
         emailVerified: row.emailVerified,
         createdAt: row.createdAt,
         capabilities: row.capability ? [row.capability] : [],
+        banned: row.banned,
+        banReason: row.banReason,
       });
     }
   }
@@ -163,6 +171,7 @@ async function AdminUsersContent({ searchParams }: Props) {
               <th>Capabilities</th>
               <th>Email verified</th>
               <th>Joined</th>
+              <th>Suspension</th>
             </tr>
           </thead>
 
@@ -186,6 +195,14 @@ async function AdminUsersContent({ searchParams }: Props) {
                 </td>
                 <td>{account.emailVerified ? "Yes" : "No"}</td>
                 <td>{account.createdAt.toLocaleDateString()}</td>
+                <td>
+                  <UserSuspensionControl
+                    userId={account.id}
+                    isSuspended={account.banned}
+                    banReason={account.banReason}
+                    isCurrentUser={account.id === session.user.id}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
