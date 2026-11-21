@@ -1,6 +1,8 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 
+import { admin } from "better-auth/plugins";
+
 import { db } from "@/lib/db";
 
 import * as schema from "@/lib/db/schema";
@@ -62,4 +64,15 @@ export const auth = betterAuth({
       },
     },
   },
+  
+  plugins: [
+    admin({
+      defaultBanReason:
+        "Your account has been suspended by the platform administration.",
+      bannedUserMessage: (user) =>
+        user.banReason
+          ? `Your account has been suspended. Reason: ${user.banReason}`
+          : "Your account has been suspended. Please contact support.",
+    }),
+  ],
 });
