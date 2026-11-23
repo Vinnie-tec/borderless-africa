@@ -1,3 +1,7 @@
+
+import { Suspense } from "react";
+import { connection } from "next/server";
+
 import { PaymentCallback } from "@/components/contracts/payment-callback";
 
 type PaymentCallbackPageProps = {
@@ -7,9 +11,21 @@ type PaymentCallbackPageProps = {
   }>;
 };
 
-export default async function PaymentCallbackPage({
+function PaymentCallbackFallback() {
+  return (
+    <main>
+      <h1>Loading payment status</h1>
+      <p>Please wait while we prepare your payment verification.</p>
+    </main>
+  );
+}
+
+async function PaymentCallbackContent({
   searchParams,
 }: PaymentCallbackPageProps) {
+  // Wait for an actual request before accessing runtime search parameters.
+  await connection();
+
   const params = await searchParams;
 
   const reference =
@@ -20,4 +36,14 @@ export default async function PaymentCallbackPage({
         : null;
 
   return <PaymentCallback reference={reference} />;
+}
+
+export default function PaymentCallbackPage({
+  searchParams,
+}: PaymentCallbackPageProps) {
+  return (
+    <Suspense fallback={<PaymentCallbackFallback />}>
+      <PaymentCallbackContent searchParams={searchParams} />
+    </Suspense>
+  );
 }
