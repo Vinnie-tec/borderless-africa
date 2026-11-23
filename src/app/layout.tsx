@@ -26,7 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       suppressHydrationWarning
       data-lt-installed="true"
-      data-new-gr-c-s-check-loaded="14.1345.0"
+      data-new-gr-c-s-check-loaded="14.1347sss.0"
       data-gr-ext-installed=""
     >
       <body
