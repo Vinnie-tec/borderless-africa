@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { jobs, user } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth-helpers";
+import Link from "next/link";
 
 type PageProps = {
   params: Promise<{ jobId: string }>;
@@ -132,7 +133,7 @@ async function JobDetail({
         </dl>
       </section>
 
-      <a href="/admin/jobs">Back to jobs</a>
+      <Link href="/admin/jobs">Back to jobs</Link>
     </section>
   );
 }
