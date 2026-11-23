@@ -16,6 +16,8 @@ import Link from "next/link";
 import { cancellationRequests } from "@/lib/db/schema";
 import { CancellationPanel } from "@/components/contracts/cancellation-panel";
 
+import { ContractPaymentButton } from "@/components/contracts/contract-payment-button";
+
 type ContractPageProps = {
   params: Promise<{
     contractId: string;
@@ -119,6 +121,10 @@ async function ContractContent({ params }: ContractPageProps) {
         <p>Delivery time: {contract.deliveryDays} days</p>
         <p>Revision allowance: {contract.revisionAllowance}</p>
       </section>
+
+      {userRole === "Client" && contract.status === "awaiting_payment" && (
+        <ContractPaymentButton contractId={contract.id} />
+      )}
 
       <section>
         <h2>Contract information</h2>
