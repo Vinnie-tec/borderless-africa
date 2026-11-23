@@ -352,6 +352,131 @@ export const contracts = pgTable(
   ],
 );
 
+export const contractPaymentStatusEnum = pgEnum("contract_payment_status", [
+  "initialized",
+  "pending",
+  "successful",
+  "failed",
+  "abandoned",
+]);
+
+export const contractPayments = pgTable(
+  "contract_payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    contractId: uuid("contract_id")
+      .notNull()
+      .references(() => contracts.id, { onDelete: "restrict" }),
+
+    clientId: text("client_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+
+    // Payment provider used for this attempt.
+    provider: varchar("provider", { length: 30 }).default("paystack").notNull(),
+
+    // Our unique reference, also sent to Paystack.
+    providerReference: varchar("provider_reference", {
+      length: 100,
+    })
+      .notNull()
+      .unique(),
+
+    // Snapshot of the contract amount at payment initiation.
+    amount: numeric("amount", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+
+    currency: varchar("currency", { length: 3 }).notNull(),
+
+    status: contractPaymentStatusEnum("status")
+      .default("initialized")
+      .notNull(),
+
+    // Paystack checkout URL.
+    authorizationUrl: text("authorization_url"),
+
+    paidAt: timestamp("paid_at", {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("contract_payments_contract_id_idx").on(table.contractId),
+
+    index("contract_payments_client_id_idx").on(table.clientId),
+
+    index("contract_payments_status_idx").on(table.status),
+
+    // A contract cannot have two successful payment records.
+    uniqueIndex("contract_payments_one_successful_per_contract")
+      .on(table.contractId)
+      .where(sql`${table.status} = 'successful'`),
+  ],
+);
+
+export const paymentWebhookProcessingStatusEnum = pgEnum(
+  "payment_webhook_processing_status",
+  ["received", "processed", "failed"],
+);
+
+export const paymentWebhookEvents = pgTable(
+  "payment_webhook_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    provider: varchar("provider", { length: 30 }).default("paystack").notNull(),
+
+    // Paystack's event name, e.g. charge.success.
+    eventType: varchar("event_type", { length: 100 }).notNull(),
+
+    // The payment reference contained in the webhook payload.
+    paymentReference: varchar("payment_reference", {
+      length: 100,
+    }),
+
+    // Keep the original payload for audit and troubleshooting.
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+
+    processingStatus: paymentWebhookProcessingStatusEnum("processing_status")
+      .default("received")
+      .notNull(),
+
+    processedAt: timestamp("processed_at", {
+      withTimezone: true,
+    }),
+
+    processingError: text("processing_error"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("payment_webhook_events_reference_idx").on(table.paymentReference),
+
+    index("payment_webhook_events_status_idx").on(table.processingStatus),
+
+    index("payment_webhook_events_created_at_idx").on(table.createdAt),
+  ],
+);
+
 export const deliveryStatusEnum = pgEnum("delivery_status", [
   "submitted",
   "revision_requested",
@@ -742,7 +867,32 @@ export const verification = pgTable(
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+
+  // Payment attempts initiated by this client.
+  contractPayments: many(contractPayments, {
+    relationName: "paymentClient",
+  }),
 }));
+
+export const contractsRelations = relations(contracts, ({ many }) => ({
+  payments: many(contractPayments),
+}));
+
+export const contractPaymentsRelations = relations(
+  contractPayments,
+  ({ one }) => ({
+    contract: one(contracts, {
+      fields: [contractPayments.contractId],
+      references: [contracts.id],
+    }),
+
+    client: one(user, {
+      fields: [contractPayments.clientId],
+      references: [user.id],
+      relationName: "paymentClient",
+    }),
+  }),
+);
 
 export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, {
