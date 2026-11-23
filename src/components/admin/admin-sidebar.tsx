@@ -17,6 +17,10 @@ const navigation = [
     label: "Proposals",
     href: "/admin/proposals",
   },
+  {
+    label: "Contracts",
+    href: "/admin/contracts",
+  },
 ];
 
 export function AdminSidebar() {
