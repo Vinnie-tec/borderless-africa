@@ -315,3 +315,214 @@ export async function initializeContractPayment(
     };
   }
 }
+
+export async function verifyContractPayment(reference: unknown) {
+  const session = await requireClient();
+
+  if (
+    typeof reference !== "string" ||
+    !reference.trim() ||
+    reference.length > 100
+  ) {
+    return {
+      success: false as const,
+      message: "Invalid payment reference.",
+    };
+  }
+
+  const secretKey = process.env.PAYSTACK_SECRET_KEY;
+
+  if (!secretKey) {
+    return {
+      success: false as const,
+      message: "Payment configuration is missing.",
+    };
+  }
+
+  try {
+    // Find the payment and ensure it belongs to this client.
+    const [payment] = await db
+      .select()
+      .from(contractPayments)
+      .where(
+        and(
+          eq(contractPayments.providerReference, reference),
+          eq(contractPayments.clientId, session.user.id),
+        ),
+      )
+      .limit(1);
+
+    if (!payment || payment.provider !== "paystack") {
+      return {
+        success: false as const,
+        message: "Payment record not found.",
+      };
+    }
+
+    // Ask Paystack to verify the transaction.
+    const response = await fetch(
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    const result = (await response.json()) as {
+      status: boolean;
+      message?: string;
+      data?: {
+        status: string;
+        reference: string;
+        amount: number;
+        currency: string;
+      };
+    };
+
+    if (
+      !response.ok ||
+      !result.status ||
+      !result.data
+    ) {
+      return {
+        success: false as const,
+        message: "Unable to verify this payment with Paystack.",
+      };
+    }
+
+    const transaction = result.data;
+
+    // Verify the actual transaction details.
+    if (
+      transaction.status !== "success" ||
+      transaction.reference !== payment.providerReference ||
+      transaction.amount !== toSmallestCurrencyUnit(payment.amount) ||
+      transaction.currency !== payment.currency
+    ) {
+      return {
+        success: false as const,
+        message: "The payment details could not be verified.",
+      };
+    }
+
+    // Lock the contract first, then the payment.
+    // This keeps the locking order consistent with our payment workflow.
+    const verification = await db.transaction(async (tx) => {
+      const [contract] = await tx
+        .select()
+        .from(contracts)
+        .where(
+          and(
+            eq(contracts.id, payment.contractId),
+            eq(contracts.clientId, session.user.id),
+          ),
+        )
+        .for("update")
+        .limit(1);
+
+      if (!contract) {
+        return {
+          success: false as const,
+          message: "Contract not found.",
+        };
+      }
+
+      const [lockedPayment] = await tx
+        .select()
+        .from(contractPayments)
+        .where(eq(contractPayments.id, payment.id))
+        .for("update")
+        .limit(1);
+
+      if (!lockedPayment) {
+        return {
+          success: false as const,
+          message: "Payment record not found.",
+        };
+      }
+
+      // Recheck the payment details after acquiring the locks.
+      if (
+        lockedPayment.clientId !== session.user.id ||
+        lockedPayment.providerReference !== transaction.reference ||
+        lockedPayment.provider !== "paystack" ||
+        lockedPayment.currency !== transaction.currency ||
+        toSmallestCurrencyUnit(lockedPayment.amount) !== transaction.amount
+      ) {
+        return {
+          success: false as const,
+          message: "Payment details no longer match.",
+        };
+      }
+
+      // A repeated verification should be harmless.
+      if (
+        lockedPayment.status === "successful" &&
+        contract.status === "active"
+      ) {
+        return {
+          success: true as const,
+          message: "Payment has already been verified.",
+        };
+      }
+
+      if (contract.status !== "awaiting_payment") {
+        return {
+          success: false as const,
+          message: "This contract is no longer awaiting payment.",
+        };
+      }
+
+      if (
+        lockedPayment.status !== "initialized" &&
+        lockedPayment.status !== "pending"
+      ) {
+        return {
+          success: false as const,
+          message: "This payment attempt cannot be verified.",
+        };
+      }
+
+      const now = new Date();
+
+      await tx
+        .update(contractPayments)
+        .set({
+          status: "successful",
+          paidAt: now,
+          updatedAt: now,
+        })
+        .where(eq(contractPayments.id, lockedPayment.id));
+
+      await tx
+        .update(contracts)
+        .set({
+          status: "active",
+          updatedAt: now,
+        })
+        .where(eq(contracts.id, contract.id));
+
+      return {
+        success: true as const,
+        message: "Payment verified successfully. Contract activated.",
+      };
+    });
+
+    if (verification.success) {
+      revalidatePath(`/dashboard/contracts/${payment.contractId}`);
+      revalidatePath("/dashboard/contracts");
+    }
+
+    return verification;
+  } catch (error) {
+    console.error("Contract payment verification failed:", error);
+
+    return {
+      success: false as const,
+      message: "Something went wrong while verifying payment.",
+    };
+  }
+}
