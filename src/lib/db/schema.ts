@@ -409,18 +409,6 @@ export const cancellationRequestStatusEnum = pgEnum(
   ["pending", "accepted", "rejected", "escalated"],
 );
 
-export const disputeStatusEnum = pgEnum("dispute_status", [
-  "open",
-  "under_review",
-  "resolved",
-]);
-
-export const disputeOriginEnum = pgEnum("dispute_origin", [
-  "cancellation",
-  "delivery",
-  "other",
-]);
-
 export const cancellationRequests = pgTable(
   "cancellation_requests",
   {
@@ -474,6 +462,18 @@ export const cancellationRequests = pgTable(
       .where(sql`${table.status} = 'pending'`),
   ],
 );
+
+export const disputeStatusEnum = pgEnum("dispute_status", [
+  "open",
+  "under_review",
+  "resolved",
+]);
+
+export const disputeOriginEnum = pgEnum("dispute_origin", [
+  "cancellation",
+  "delivery",
+  "other",
+]);
 
 export const disputes = pgTable(
   "disputes",
