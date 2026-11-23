@@ -13,6 +13,10 @@ const navigation = [
     label: "Disputes",
     href: "/admin/disputes",
   },
+  {
+    label: "Proposals",
+    href: "/admin/proposals",
+  },
 ];
 
 export function AdminSidebar() {
