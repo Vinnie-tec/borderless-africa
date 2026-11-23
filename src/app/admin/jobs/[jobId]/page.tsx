@@ -1,4 +1,3 @@
-
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
@@ -9,13 +8,14 @@ import { jobs, user } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/auth-helpers";
 import Link from "next/link";
 
+import { contracts } from "@/lib/db/schema";
+import { JobModerationControl } from "@/components/admin/job-moderation-control";
+
 type PageProps = {
   params: Promise<{ jobId: string }>;
 };
 
-async function JobDetail({
-  params,
-}: PageProps) {
+async function JobDetail({ params }: PageProps) {
   await connection();
   await requireAdmin();
 
@@ -60,6 +60,12 @@ async function JobDetail({
     notFound();
   }
 
+  const [existingContract] = await db
+    .select({ id: contracts.id })
+    .from(contracts)
+    .where(eq(contracts.jobId, job.id))
+    .limit(1);
+
   return (
     <section>
       <header>
@@ -80,8 +86,7 @@ async function JobDetail({
 
           <dt>Budget</dt>
           <dd>
-            {job.currency}{" "}
-            {Number(job.budget).toLocaleString()}
+            {job.currency} {Number(job.budget).toLocaleString()}
           </dd>
 
           <dt>Expected delivery</dt>
@@ -104,9 +109,7 @@ async function JobDetail({
 
       <section>
         <h2>Description</h2>
-        <p style={{ whiteSpace: "pre-wrap" }}>
-          {job.description}
-        </p>
+        <p style={{ whiteSpace: "pre-wrap" }}>{job.description}</p>
       </section>
 
       <section>
@@ -132,15 +135,17 @@ async function JobDetail({
           <dd>{job.clientJoinedAt.toLocaleDateString()}</dd>
         </dl>
       </section>
-
+      <JobModerationControl
+        jobId={job.id}
+        status={job.status}
+        hasContract={Boolean(existingContract)}
+      />
       <Link href="/admin/jobs">Back to jobs</Link>
     </section>
   );
 }
 
-export default function AdminJobDetailPage({
-  params,
-}: PageProps) {
+export default function AdminJobDetailPage({ params }: PageProps) {
   return (
     <Suspense fallback={<p>Loading job details...</p>}>
       <JobDetail params={params} />
