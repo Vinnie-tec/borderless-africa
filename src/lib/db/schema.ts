@@ -260,6 +260,16 @@ export const proposalOffers = pgTable(
 
     message: text("message").notNull(),
 
+    // The participant who accepted this offer.
+    acceptedById: text("accepted_by_id").references(() => user.id, {
+      onDelete: "restrict",
+    }),
+
+    // When the offer was accepted.
+    acceptedAt: timestamp("accepted_at", {
+      withTimezone: true,
+    }),
+
     createdAt: timestamp("created_at", {
       withTimezone: true,
     })
