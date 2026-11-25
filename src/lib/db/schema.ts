@@ -751,6 +751,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "dispute_review_started",
   "dispute_resolved",
   "dispute_outcome_applied",
+  "counteroffer_accepted",
 ]);
 
 export const notifications = pgTable(

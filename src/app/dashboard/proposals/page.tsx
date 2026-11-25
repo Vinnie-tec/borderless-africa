@@ -4,14 +4,12 @@ import { asc, desc, eq, inArray } from "drizzle-orm";
 
 import { requireFreelancer } from "@/lib/marketplace/authorization";
 import { db } from "@/lib/db";
-import {
-  jobs,
-  proposals,
-  proposalOffers,
-} from "@/lib/db/schema";
+import { jobs, proposals, proposalOffers } from "@/lib/db/schema";
 
 import OfferHistory from "@/components/proposals/offer-history";
 import CounterofferForm from "@/components/proposals/counteroffer-form";
+
+import AcceptCounterofferButton from "@/components/proposals/accept-counteroffer-button";
 import Link from "next/link";
 
 async function MyProposalsContent() {
@@ -56,6 +54,8 @@ async function MyProposalsContent() {
             deliveryDays: proposalOffers.deliveryDays,
             message: proposalOffers.message,
             createdAt: proposalOffers.createdAt,
+            acceptedById: proposalOffers.acceptedById,
+            acceptedAt: proposalOffers.acceptedAt,
           })
           .from(proposalOffers)
           .where(inArray(proposalOffers.proposalId, proposalIds))
@@ -63,10 +63,7 @@ async function MyProposalsContent() {
       : [];
 
   // Group offers by their proposal ID.
-  const offersByProposal = new Map<
-    string,
-    (typeof allOffers)[number][]
-  >();
+  const offersByProposal = new Map<string, (typeof allOffers)[number][]>();
 
   for (const offer of allOffers) {
     const existing = offersByProposal.get(offer.proposalId) ?? [];
@@ -94,22 +91,26 @@ async function MyProposalsContent() {
 
         // Before any counteroffer, the original freelancer proposal
         // is treated as the latest offer.
-        const lastSenderId =
-          latestOffer?.senderId ?? proposal.freelancerId;
+        const lastSenderId = latestOffer?.senderId ?? proposal.freelancerId;
 
-        const isFreelancersTurn =
-          lastSenderId !== session.user.id;
+        const isFreelancersTurn = lastSenderId !== session.user.id;
 
         const canNegotiate =
-          proposal.status === "pending" ||
-          proposal.status === "negotiating";
+          proposal.status === "pending" || proposal.status === "negotiating";
+
+        const isClientCounteroffer =
+          latestOffer?.senderId === proposal.clientId;
+
+        const hasAcceptedCounteroffer =
+          isClientCounteroffer &&
+          latestOffer?.acceptedAt !== null &&
+          latestOffer?.acceptedAt !== undefined &&
+          latestOffer?.acceptedById === session.user.id;
 
         return (
           <article key={proposal.id}>
             <h2>
-              <a href={`/jobs/${proposal.jobId}`}>
-                {proposal.jobTitle}
-              </a>
+              <a href={`/jobs/${proposal.jobId}`}>{proposal.jobTitle}</a>
             </h2>
 
             <p>Status: {proposal.status}</p>
@@ -140,7 +141,20 @@ async function MyProposalsContent() {
               }}
             />
 
-            {canNegotiate && isFreelancersTurn && (
+            {canNegotiate && hasAcceptedCounteroffer && (
+              <p>
+                You accepted the client&apos;s counteroffer. Waiting for the
+                client to formally accept your proposal.
+              </p>
+            )}
+
+            {canNegotiate &&
+              isClientCounteroffer &&
+              !latestOffer?.acceptedAt && (
+                <AcceptCounterofferButton proposalId={proposal.id} />
+              )}
+
+            {canNegotiate && isFreelancersTurn && !latestOffer?.acceptedAt && (
               <CounterofferForm
                 proposalId={proposal.id}
                 currentPrice={
@@ -152,7 +166,7 @@ async function MyProposalsContent() {
               />
             )}
 
-            {canNegotiate && !isFreelancersTurn && (
+            {canNegotiate && !isFreelancersTurn && !hasAcceptedCounteroffer && (
               <p>Waiting for the client to respond to your proposal.</p>
             )}
           </article>
