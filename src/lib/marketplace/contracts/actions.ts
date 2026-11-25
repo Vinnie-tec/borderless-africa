@@ -124,23 +124,45 @@ export async function acceptProposal(
         };
       }
 
-      // The latest counteroffer contains the current negotiated terms.
+      // The latest counteroffer contains the current negotiated terms
+      // and records whether the other participant accepted it.
       const [latestOffer] = await tx
         .select({
           senderId: proposalOffers.senderId,
           proposedPrice: proposalOffers.proposedPrice,
           deliveryDays: proposalOffers.deliveryDays,
+          acceptedById: proposalOffers.acceptedById,
+          acceptedAt: proposalOffers.acceptedAt,
         })
         .from(proposalOffers)
         .where(eq(proposalOffers.proposalId, proposal.id))
         .orderBy(desc(proposalOffers.offerNumber))
         .limit(1);
 
-      // The client cannot accept their own unanswered counteroffer.
+      // If the client sent the latest counteroffer, the freelancer
+      // must accept it before the client can formally accept the proposal.
       if (latestOffer?.senderId === session.user.id) {
+        const freelancerAccepted =
+          latestOffer.acceptedAt !== null &&
+          latestOffer.acceptedById === proposal.freelancerId;
+
+        if (!freelancerAccepted) {
+          return {
+            success: false as const,
+            message: "Wait for the freelancer to accept your counteroffer.",
+          };
+        }
+      }
+
+      // Fail safely if the latest offer was not sent by either participant.
+      if (
+        latestOffer &&
+        latestOffer.senderId !== session.user.id &&
+        latestOffer.senderId !== proposal.freelancerId
+      ) {
         return {
           success: false as const,
-          message: "Wait for the freelancer to respond before accepting.",
+          message: "Invalid negotiation state. Please refresh and try again.",
         };
       }
 
