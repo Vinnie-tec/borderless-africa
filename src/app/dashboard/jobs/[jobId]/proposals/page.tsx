@@ -77,6 +77,8 @@ async function ProposalInboxContent({ params }: ProposalInboxPageProps) {
             senderId: proposalOffers.senderId,
             proposedPrice: proposalOffers.proposedPrice,
             deliveryDays: proposalOffers.deliveryDays,
+            acceptedById: proposalOffers.acceptedById,
+            acceptedAt: proposalOffers.acceptedAt,
             message: proposalOffers.message,
             createdAt: proposalOffers.createdAt,
           })
@@ -127,6 +129,18 @@ async function ProposalInboxContent({ params }: ProposalInboxPageProps) {
 
             const isClientsTurn = lastSenderId !== session.user.id;
 
+            // The freelancer has accepted the client's latest counteroffer.
+            const hasFreelancerAcceptedClientOffer =
+              latestOffer?.senderId === session.user.id &&
+              latestOffer.acceptedAt !== null &&
+              latestOffer.acceptedById === proposal.freelancerId;
+
+            // The client can formally accept when:
+            // 1. It is the client's turn to respond to a freelancer's offer, OR
+            // 2. The freelancer has accepted the client's counteroffer.
+            const canAcceptProposal =
+              isClientsTurn || hasFreelancerAcceptedClientOffer;
+
             const canNegotiate =
               proposal.status === "pending" ||
               proposal.status === "negotiating";
@@ -169,21 +183,19 @@ async function ProposalInboxContent({ params }: ProposalInboxPageProps) {
                   }}
                 />
 
-                {(proposal.status === "pending" ||
-                  proposal.status === "negotiating") &&
-                  isClientsTurn && (
-                    <CounterofferForm
-                      proposalId={proposal.id}
-                      currentPrice={
-                        latestOffer?.proposedPrice ?? proposal.proposedPrice
-                      }
-                      currentDeliveryDays={
-                        latestOffer?.deliveryDays ?? proposal.deliveryDays
-                      }
-                    />
-                  )}
-
                 {canNegotiate && isClientsTurn && (
+                  <CounterofferForm
+                    proposalId={proposal.id}
+                    currentPrice={
+                      latestOffer?.proposedPrice ?? proposal.proposedPrice
+                    }
+                    currentDeliveryDays={
+                      latestOffer?.deliveryDays ?? proposal.deliveryDays
+                    }
+                  />
+                )}
+
+                {canNegotiate && canAcceptProposal && (
                   <AcceptProposalButton proposalId={proposal.id} />
                 )}
               </article>
