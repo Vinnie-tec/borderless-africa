@@ -175,7 +175,9 @@ export function CancellationPanel({
 
         <p>
           Response deadline:{" "}
-          {new Date(pendingRequest.responseDeadline).toLocaleString()}
+          {new Date(pendingRequest.responseDeadline).toLocaleString("en-GB", {
+            timeZone: "Africa/Lagos",
+          })}
         </p>
 
         {isRequester ? (
