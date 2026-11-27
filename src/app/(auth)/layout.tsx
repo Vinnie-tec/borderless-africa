@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import ThemeToggle from "@/app/theme-toggle";
 import styles from "./auth-layout.module.scss";
 
 type AuthLayoutProps = {
@@ -45,6 +46,9 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         </aside>
 
         <section aria-label="Account access" className={styles.content}>
+          <div className={styles.themeControl}>
+            <ThemeToggle />
+          </div>
           <Link aria-label="Borderless Africa home" className={styles.mobileBrand} href="/">
             <span aria-hidden="true" className={styles.brandMark}>
               BA

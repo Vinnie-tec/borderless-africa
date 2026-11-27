@@ -13,6 +13,7 @@ import {
   contracts,
   disputes,
 } from "@/lib/db/schema";
+import styles from "./admin-overview.module.scss";
 
 export default function AdminPage() {
   return (
@@ -87,12 +88,9 @@ async function AdminDashboard() {
       .limit(5),
   ]);
 
-  const formatLabel = (value: string) =>
-    value.replaceAll("_", " ");
+  const formatLabel = (value: string) => value.replaceAll("_", " ");
 
-  const renderCounts = (
-    items: { status: string; total: number }[],
-  ) => (
+  const renderCounts = (items: { status: string; total: number }[]) => (
     <ul>
       {items.map((item) => (
         <li key={item.status}>
@@ -107,53 +105,66 @@ async function AdminDashboard() {
     capabilityCounts.find((item) => item.capability === capability)
       ?.total ?? 0;
 
+  const metricCards = [
+    {
+      title: "Users",
+      mark: "US",
+      content: (
+        <>
+          <p>
+            Total registered users: <strong>{userCount[0].total}</strong>
+          </p>
+          <ul>
+            <li>
+              Clients <strong>{capabilityTotal("client")}</strong>
+            </li>
+            <li>
+              Freelancers <strong>{capabilityTotal("freelancer")}</strong>
+            </li>
+          </ul>
+          <Link href="/admin/users">Manage users</Link>
+        </>
+      ),
+    },
+    { title: "Jobs", mark: "JB", content: renderCounts(jobCounts) },
+    { title: "Proposals", mark: "PR", content: renderCounts(proposalCounts) },
+    { title: "Contracts", mark: "CT", content: renderCounts(contractCounts) },
+    {
+      title: "Disputes",
+      mark: "DS",
+      content: (
+        <>
+          {renderCounts(disputeCounts)}
+          <Link href="/admin/disputes">Manage disputes</Link>
+        </>
+      ),
+    },
+  ];
+
   return (
-    <div>
-      <header>
-        <h2>Dashboard overview</h2>
+    <div className={styles.overview}>
+      <header className={styles.heading}>
+        <span>Operations / Overview</span>
+        <h1>Dashboard overview</h1>
         <p>Live statistics from the Borderless Africa marketplace.</p>
       </header>
 
-      <section aria-labelledby="users-heading">
-        <h3 id="users-heading">Users</h3>
-        <p>
-          Total registered users:{" "}
-          <strong>{userCount[0].total}</strong>
-        </p>
-        <ul>
-          <li>
-            Clients: <strong>{capabilityTotal("client")}</strong>
-          </li>
-          <li>
-            Freelancers: <strong>{capabilityTotal("freelancer")}</strong>
-          </li>
-        </ul>
-        <Link href="/admin/users">Manage users</Link>
-      </section>
+      <div className={styles.metrics}>
+        {metricCards.map((card) => (
+          <section aria-label={card.title} className={styles.metric} key={card.title}>
+            <div className={styles.metricHeading}>
+              <h2>{card.title}</h2>
+              <span aria-hidden="true" className={styles.metricMark}>
+                {card.mark}
+              </span>
+            </div>
+            {card.content}
+          </section>
+        ))}
+      </div>
 
-      <section aria-labelledby="jobs-heading">
-        <h3 id="jobs-heading">Jobs</h3>
-        {renderCounts(jobCounts)}
-      </section>
-
-      <section aria-labelledby="proposals-heading">
-        <h3 id="proposals-heading">Proposals</h3>
-        {renderCounts(proposalCounts)}
-      </section>
-
-      <section aria-labelledby="contracts-heading">
-        <h3 id="contracts-heading">Contracts</h3>
-        {renderCounts(contractCounts)}
-      </section>
-
-      <section aria-labelledby="disputes-heading">
-        <h3 id="disputes-heading">Disputes</h3>
-        {renderCounts(disputeCounts)}
-        <Link href="/admin/disputes">Manage disputes</Link>
-      </section>
-
-      <section aria-labelledby="recent-disputes-heading">
-        <h3 id="recent-disputes-heading">Recent disputes</h3>
+      <section aria-labelledby="recent-disputes-heading" className={styles.recent}>
+        <h2 id="recent-disputes-heading">Recent disputes</h2>
 
         {recentDisputes.length === 0 ? (
           <p>No disputes have been reported yet.</p>
@@ -168,8 +179,7 @@ async function AdminDashboard() {
                 <p>Origin: {formatLabel(dispute.origin)}</p>
                 <p>Reason: {dispute.reason}</p>
                 <p>
-                  Reported:{" "}
-                  {dispute.createdAt.toLocaleString()}
+                  Reported: {dispute.createdAt.toLocaleString()}
                 </p>
               </li>
             ))}

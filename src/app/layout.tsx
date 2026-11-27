@@ -16,8 +16,9 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Borderless Africa || Agboola Vincent",
-  description: "A fresh canvas for ideas without borders.",
+  title: "Borderless Africa | Work without borders",
+  description:
+    "Find meaningful work, connect with brilliant people, and build opportunities across Africa and beyond.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

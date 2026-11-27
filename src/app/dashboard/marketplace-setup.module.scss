@@ -1,0 +1,125 @@
+.section {
+  margin: 0;
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid var(--color-border);
+  border-radius: 22px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(20px);
+}
+
+.heading {
+  margin-bottom: 20px;
+}
+
+.heading h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+
+.heading p {
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.option {
+  position: relative;
+  display: flex;
+  min-height: 190px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 17px;
+  background: var(--color-surface-raised);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.option:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 32%, var(--color-border));
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-2px);
+}
+
+.option h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.option p {
+  margin: 9px 0 18px;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.option button {
+  display: inline-flex;
+  min-height: 37px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 0 13px;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 650;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.option button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.option button:disabled {
+  opacity: 0.62;
+}
+
+.active {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  color: var(--color-success);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.active::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+@media (max-width: 600px) {
+  .options {
+    grid-template-columns: 1fr;
+  }
+}

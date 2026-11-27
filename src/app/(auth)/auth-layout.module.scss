@@ -224,10 +224,17 @@
 }
 
 .content {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: clamp(34px, 7vw, 96px);
+}
+
+.themeControl {
+  position: absolute;
+  top: 24px;
+  right: 24px;
 }
 
 .mobileBrand {
@@ -330,6 +337,11 @@
     min-height: 100svh;
     justify-self: center;
     padding: 28px clamp(22px, 7vw, 38px) 22px;
+  }
+
+  .themeControl {
+    top: 22px;
+    right: 20px;
   }
 
   .mobileBrand {

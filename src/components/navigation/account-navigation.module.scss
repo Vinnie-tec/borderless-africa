@@ -1,0 +1,92 @@
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.greeting {
+  color: var(--color-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.greeting strong {
+  color: var(--color-text);
+  font-weight: 650;
+}
+
+.signInLink,
+.workspaceLink {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 160ms ease;
+}
+
+.signInLink:hover,
+.workspaceLink:hover {
+  color: var(--color-accent);
+}
+
+.joinLink {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.joinLink:hover,
+.workspaceLink:hover {
+  transform: translateY(-1px);
+}
+
+.joinLink:hover {
+  box-shadow: 0 8px 20px var(--color-accent-soft);
+}
+
+.workspaceLink {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background: var(--color-surface);
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.workspaceLink:hover {
+  border-color: var(--color-accent);
+}
+
+@media (max-width: 420px) {
+  .actions {
+    gap: 8px;
+  }
+
+  .greeting,
+  .signInLink {
+    font-size: 10px;
+  }
+
+  .joinLink,
+  .workspaceLink {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 10px;
+  }
+}

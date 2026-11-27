@@ -15,6 +15,7 @@
   min-height: 52px;
   align-items: center;
   justify-content: space-between;
+  gap: 24px;
 }
 
 .wordmark {
@@ -45,24 +46,24 @@
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 14px;
 }
 
-.availability {
-  display: inline-flex;
+.navigation {
+  display: flex;
   align-items: center;
-  gap: 9px;
-  color: var(--color-muted);
-  font-size: 12px;
+  gap: clamp(18px, 3vw, 38px);
 }
 
-.availability::before {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #54a879;
-  box-shadow: 0 0 0 4px rgba(84, 168, 121, 0.12);
-  content: "";
+.navigation a {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+  transition: color 160ms ease;
+}
+
+.navigation a:hover {
+  color: var(--color-accent);
 }
 
 .hero {
@@ -121,6 +122,64 @@
   color: var(--color-muted);
   font-size: clamp(15px, 1.4vw, 18px);
   line-height: 1.8;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 11px;
+  margin-top: 30px;
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  min-height: 47px;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  padding: 0 17px;
+  border: 1px solid var(--color-border);
+  border-radius: 13px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 650;
+  box-shadow: 0 8px 22px rgba(27, 38, 53, 0.045);
+  backdrop-filter: blur(16px);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.primaryAction {
+  border-color: transparent;
+  background: var(--color-accent);
+  color: #fff;
+  box-shadow: 0 10px 24px var(--color-accent-soft);
+}
+
+.primaryAction:hover,
+.secondaryAction:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+
+.primaryAction:hover {
+  box-shadow: 0 14px 30px var(--color-accent-soft);
+}
+
+.primaryAction span {
+  font-size: 15px;
+  font-weight: 400;
+  transition: transform 180ms ease;
+}
+
+.primaryAction:hover span {
+  transform: translate(2px, -2px);
 }
 
 .footnote {
@@ -334,7 +393,7 @@
     padding: 20px 22px 18px;
   }
 
-  .availability {
+  .navigation {
     display: none;
   }
 
@@ -343,6 +402,10 @@
     grid-template-columns: 1fr;
     gap: 24px;
     padding: 88px 0 54px;
+  }
+
+  .headerActions {
+    margin-left: auto;
   }
 
   .title {

@@ -1,7 +1,12 @@
 
 import Link from "next/link";
+import { Suspense } from "react";
 import styles from "./page.module.scss";
 import ThemeToggle from "./theme-toggle";
+import {
+  AccountNavigation,
+  AccountNavigationFallback,
+} from "@/components/navigation/account-navigation";
 
 export default function Home() {
   return (
@@ -18,25 +23,38 @@ export default function Home() {
             </span>
             <span>Borderless Africa</span>
           </Link>
+          <nav aria-label="Main navigation" className={styles.navigation}>
+            <Link href="/jobs">Explore work</Link>
+            <Link href="/dashboard">Your workspace</Link>
+          </nav>
           <div className={styles.headerActions}>
-            <span className={styles.availability}>A fresh perspective</span>
+            <Suspense fallback={<AccountNavigationFallback joinLabel="Join" />}>
+              <AccountNavigation joinLabel="Join" />
+            </Suspense>
             <ThemeToggle />
           </div>
         </header>
 
         <section aria-labelledby="home-title" className={styles.hero}>
           <div className={styles.copy}>
-            <p className={styles.eyebrow}>A new point of view</p>
+            <p className={styles.eyebrow}>Made for work without borders</p>
             <h1 className={styles.title} id="home-title">
-              Hello, 
-
-              <span>world.</span>
+              Work without
+              <span>borders.</span>
             </h1>
             <p className={styles.description}>
-              A fresh canvas for ideas without borders. Thoughtful by design,
-              open to what comes next.
+              Find meaningful work, connect with brilliant people, and bring
+              your next idea to life across Africa and beyond.
             </p>
-            <p className={styles.footnote}>Made with room to imagine</p>
+            <div className={styles.heroActions}>
+              <Link className={styles.primaryAction} href="/jobs">
+                Explore opportunities <span aria-hidden="true">↗</span>
+              </Link>
+              <Link className={styles.secondaryAction} href="/sign-up">
+                Create your account
+              </Link>
+            </div>
+            <p className={styles.footnote}>Rooted here. Open everywhere.</p>
           </div>
 
           <div aria-hidden="true" className={styles.artwork}>
@@ -49,7 +67,7 @@ export default function Home() {
                 <span className={styles.orb} />
               </div>
               <div className={styles.cardBottom}>
-                <p className={styles.cardTitle}>A world of possibility</p>
+                <p className={styles.cardTitle}>Your next chapter</p>
                 <span className={styles.cardArrow}>↗</span>
               </div>
             </div>
